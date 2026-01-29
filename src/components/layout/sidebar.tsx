@@ -1,5 +1,6 @@
 import { useAccounts } from "@/features/accounts";
 import { ACCOUNT_TYPE, ACCOUNT_TYPE_LABLES } from "@/features/accounts/config/constants";
+import { Link } from "@tanstack/react-router";
 
 export const Sidebar = () => {
 	const accountsQuery = useAccounts();
@@ -26,9 +27,15 @@ export const Sidebar = () => {
 					<div>
 						<h3 className="mb-1 font-semibold uppercase">{name}</h3>{" "}
 						{accounts.map((account) => (
-							<div className="px-2 py-1 flex rounded-md cursor-pointer hover:bg-secondary">
-								<span>{account.name}</span>
-							</div>
+							<Link
+								key={account.id}
+								to="/accounts/$accountId"
+								params={{ accountId: account.id }}
+							>
+								<div className="px-2 py-1 flex rounded-md cursor-pointer hover:bg-secondary">
+									<span>{account.name}</span>
+								</div>
+							</Link>
 						))}
 					</div>
 				))}

@@ -2,7 +2,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { getAccountsQueryOptions } from "@/features/accounts";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_layout")({
+export const Route = createFileRoute("/_app")({
 	loader: ({ context: { queryClient } }) =>
 		queryClient.ensureQueryData(getAccountsQueryOptions()),
 	component: RouteComponent,
