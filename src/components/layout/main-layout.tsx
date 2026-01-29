@@ -1,3 +1,4 @@
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Sidebar } from "./sidebar";
 
 type MainLayoutProps = {
@@ -6,9 +7,9 @@ type MainLayoutProps = {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
 	return (
-		<div className="flex h-screen">
+		<SidebarProvider>
 			<Sidebar />
 			<main className="flex-1 overflow-y-auto p-8">{children}</main>
-		</div>
+		</SidebarProvider>
 	);
 };

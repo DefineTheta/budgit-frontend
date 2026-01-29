@@ -10,40 +10,48 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LayoutRouteImport } from './routes/_layout'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as LayoutAccountsAccountIdRouteImport } from './routes/_layout.accounts.$accountId'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutAccountsAccountIdRoute = LayoutAccountsAccountIdRouteImport.update({
+  id: '/accounts/$accountId',
+  path: '/accounts/$accountId',
+  getParentRoute: () => LayoutRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof LayoutIndexRoute
+  '/accounts/$accountId': typeof LayoutAccountsAccountIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/': typeof LayoutIndexRoute
+  '/accounts/$accountId': typeof LayoutAccountsAccountIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/_layout': typeof LayoutRoute
+  '/_layout': typeof LayoutRouteWithChildren
+  '/_layout/': typeof LayoutIndexRoute
+  '/_layout/accounts/$accountId': typeof LayoutAccountsAccountIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/accounts/$accountId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/' | '/_layout'
+  to: '/' | '/accounts/$accountId'
+  id: '__root__' | '/_layout' | '/_layout/' | '/_layout/accounts/$accountId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  LayoutRoute: typeof LayoutRoute
+  LayoutRoute: typeof LayoutRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -55,19 +63,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_layout/': {
+      id: '/_layout/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof LayoutIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/accounts/$accountId': {
+      id: '/_layout/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/accounts/$accountId'
+      preLoaderRoute: typeof LayoutAccountsAccountIdRouteImport
+      parentRoute: typeof LayoutRoute
     }
   }
 }
 
+interface LayoutRouteChildren {
+  LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutAccountsAccountIdRoute: typeof LayoutAccountsAccountIdRoute
+}
+
+const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutIndexRoute: LayoutIndexRoute,
+  LayoutAccountsAccountIdRoute: LayoutAccountsAccountIdRoute,
+}
+
+const LayoutRouteWithChildren =
+  LayoutRoute._addFileChildren(LayoutRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  LayoutRoute: LayoutRoute,
+  LayoutRoute: LayoutRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

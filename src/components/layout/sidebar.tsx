@@ -1,9 +1,37 @@
 import { useAccounts } from "@/features/accounts";
+import { ACCOUNT_TYPE, ACCOUNT_TYPE_LABLES } from "@/features/accounts/config/constants";
 
 export const Sidebar = () => {
 	const accountsQuery = useAccounts();
 
-	if (!accountsQuery.isLoading && !accountsQuery.isError) console.log(accountsQuery.data);
+	const accounts = accountsQuery.data ?? [];
 
-	return <div></div>;
+	const groupedAccouts = {
+		[ACCOUNT_TYPE_LABLES[ACCOUNT_TYPE.CASH]]: accounts.filter(
+			(account) => account.account_type === ACCOUNT_TYPE.CASH,
+		),
+		[ACCOUNT_TYPE_LABLES[ACCOUNT_TYPE.DEBIT]]: accounts.filter(
+			(account) => account.account_type === ACCOUNT_TYPE.DEBIT,
+		),
+		[ACCOUNT_TYPE_LABLES[ACCOUNT_TYPE.CREDIT]]: accounts.filter(
+			(account) => account.account_type === ACCOUNT_TYPE.CREDIT,
+		),
+	};
+
+	return (
+		<div className="w-64 p-3 flex flex-col space-y-4 bg-primary-foreground">
+			{Object.entries(groupedAccouts)
+				.filter(([_, accounts]) => accounts.length)
+				.map(([name, accounts]) => (
+					<div>
+						<h3 className="mb-1 font-semibold uppercase">{name}</h3>{" "}
+						{accounts.map((account) => (
+							<div className="px-2 py-1 flex rounded-md cursor-pointer hover:bg-secondary">
+								<span>{account.name}</span>
+							</div>
+						))}
+					</div>
+				))}
+		</div>
+	);
 };
