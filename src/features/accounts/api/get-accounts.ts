@@ -1,8 +1,8 @@
-import { api } from "@/lib/api-client";
-import type { QueryConfig } from "@/lib/react-query";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { AccountSchema, type Account } from "@/features/accounts/config/schemas";
+import { type Account, AccountSchema } from "@/features/accounts/config/schemas";
+import { api } from "@/lib/api-client";
+import type { QueryConfig } from "@/lib/react-query";
 
 export const getAccounts = async (): Promise<Account[]> => {
 	const response = await api.get<Account[]>("/accounts");

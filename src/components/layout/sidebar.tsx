@@ -1,6 +1,6 @@
+import { Link } from "@tanstack/react-router";
 import { useAccounts } from "@/features/accounts";
 import { ACCOUNT_TYPE, ACCOUNT_TYPE_LABLES } from "@/features/accounts/config/constants";
-import { Link } from "@tanstack/react-router";
 
 export const Sidebar = () => {
 	const accountsQuery = useAccounts();

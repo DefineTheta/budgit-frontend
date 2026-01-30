@@ -1,6 +1,6 @@
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { MainLayout } from "@/components/layout/main-layout";
 import { getAccountsQueryOptions } from "@/features/accounts";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app")({
 	loader: ({ context: { queryClient } }) =>
