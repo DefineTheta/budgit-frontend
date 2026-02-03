@@ -34,13 +34,22 @@ export function DataTable<TData, TValue>({
 
 	return (
 		<div className="rounded-md border">
-			<Table>
+			<Table className="table-fixed w-full">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id}>
 							{headerGroup.headers.map((header) => {
+								const isFluid = header.column.columnDef.meta?.fluid;
+
 								return (
-									<TableHead key={header.id}>
+									<TableHead
+										key={header.id}
+										style={{
+											width: isFluid ? "100%" : `${header.getSize()}px`,
+											minWidth: isFluid ? "200px" : undefined,
+										}}
+										className="font-medium"
+									>
 										{header.isPlaceholder
 											? null
 											: flexRender(header.column.columnDef.header, header.getContext())}
@@ -54,7 +63,11 @@ export function DataTable<TData, TValue>({
 					{prependedRow}
 					{table.getRowModel().rows?.length
 						? table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+								<TableRow
+									key={row.id}
+									data-state={row.getIsSelected() && "selected"}
+									className="h-10"
+								>
 									{row.getVisibleCells().map((cell) => (
 										<TableCell key={cell.id}>
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -3,6 +3,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useTransactions } from "@/features/transactions/api/get-transactions";
 import type { Transaction } from "@/features/transactions/config/schemas";
 import { EditableTransactionRow } from "./editable-transaction-row";
+import { useCreateTransaction } from "../api/create-transaction";
 
 interface AccountTransactionTableProps {
 	accountId: string;
@@ -16,25 +17,34 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 	{
 		accessorKey: "date",
 		header: "Date",
+		size: 196,
 		cell: ({ row }) => {
-			return new Date(row.getValue("date")).toLocaleDateString();
+			return Intl.DateTimeFormat(undefined, {
+				dateStyle: "short",
+			}).format(row.original.date);
 		},
 	},
 	{
 		accessorKey: "payee",
 		header: "Payee",
+		size: 196,
 	},
 	{
 		accessorKey: "category",
 		header: "Category",
+		size: 196,
 	},
 	{
 		accessorKey: "memo",
 		header: "Memo",
+		meta: {
+			fluid: true,
+		},
 	},
 	{
 		accessorKey: "outflow",
 		header: "Outflow",
+		size: 120,
 		cell: ({ row }) => {
 			const amount = row.original.outflow / 100;
 			const formattedAmount = new Intl.NumberFormat("en-AU", {
@@ -48,6 +58,7 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 	{
 		accessorKey: "inflow",
 		header: "Inflow",
+		size: 120,
 		cell: ({ row }) => {
 			const amount = row.original.inflow / 100;
 			const formattedAmount = new Intl.NumberFormat("en-AU", {
@@ -57,11 +68,6 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 
 			return formattedAmount;
 		},
-	},
-	{
-		id: "actions",
-		header: "",
-		cell: () => null,
 	},
 ];
 
@@ -74,9 +80,37 @@ export const AccountTransactionTable = ({
 		accountId,
 	});
 
+	const { mutate: createTransactionMutation, isPending: creatingTransaction } =
+		useCreateTransaction({
+			mutationConfig: {
+				onSuccess: () => onCancelAdd?.(),
+			},
+		});
+
 	const transactions = transactionsQuery.data;
 
 	if (!transactions) return null;
+
+	const handleTransactionCreate = (data: {
+		date: Date;
+		payee: string;
+		category: string;
+		memo: string;
+		outflow: number;
+		inflow: number;
+	}) => {
+		createTransactionMutation({
+			data: {
+				date: data.date,
+				account_id: accountId,
+				payee_id: data.payee,
+				category_id: data.category,
+				memo: data.memo,
+				outflow: data.outflow,
+				inflow: data.inflow,
+			},
+		});
+	};
 
 	return (
 		<DataTable
@@ -84,7 +118,10 @@ export const AccountTransactionTable = ({
 			data={transactions}
 			prependedRow={
 				isAddingTransaction && onCancelAdd ? (
-					<EditableTransactionRow onCancel={onCancelAdd} />
+					<EditableTransactionRow
+						onCancel={onCancelAdd}
+						onSave={handleTransactionCreate}
+					/>
 				) : undefined
 			}
 		/>
