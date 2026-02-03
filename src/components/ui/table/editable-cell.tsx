@@ -1,1 +1,2 @@
-export const TableEditableCell = ({ getValue, row, column, table }) => {};
+// Placeholder for future editable cell implementation
+export const TableEditableCell = () => null;

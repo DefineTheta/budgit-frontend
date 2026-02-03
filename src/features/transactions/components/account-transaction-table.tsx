@@ -1,10 +1,13 @@
-import { type ColumnDef } from "@tanstack/react-table";
-import type { Transaction } from "@/features/transactions/config/schemas";
-import { useTransactions } from "@/features/transactions/api/get-transactions";
+import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
+import { useTransactions } from "@/features/transactions/api/get-transactions";
+import type { Transaction } from "@/features/transactions/config/schemas";
+import { EditableTransactionRow } from "./editable-transaction-row";
 
 interface AccountTransactionTableProps {
 	accountId: string;
+	isAddingTransaction?: boolean;
+	onCancelAdd?: () => void;
 }
 
 type TransactionWithDraft = Transaction & { draft?: boolean };
@@ -55,16 +58,35 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 			return formattedAmount;
 		},
 	},
+	{
+		id: "actions",
+		header: "",
+		cell: () => null,
+	},
 ];
 
-export const AccountTransactionTable = (props: AccountTransactionTableProps) => {
+export const AccountTransactionTable = ({
+	accountId,
+	isAddingTransaction = false,
+	onCancelAdd,
+}: AccountTransactionTableProps) => {
 	const transactionsQuery = useTransactions({
-		accountId: props.accountId,
+		accountId,
 	});
 
 	const transactions = transactionsQuery.data;
 
-	if (!transactions) return;
+	if (!transactions) return null;
 
-	return <DataTable columns={columns} data={transactions} />;
+	return (
+		<DataTable
+			columns={columns}
+			data={transactions}
+			prependedRow={
+				isAddingTransaction && onCancelAdd ? (
+					<EditableTransactionRow onCancel={onCancelAdd} />
+				) : undefined
+			}
+		/>
+	);
 };

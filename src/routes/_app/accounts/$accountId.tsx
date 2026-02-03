@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CreditCard, PlusIcon } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/features/accounts/api/get-account";
-import { useTransactions } from "@/features/transactions/api/get-transactions";
 import { AccountTransactionTable } from "@/features/transactions/components/account-transaction-table";
 
 export const Route = createFileRoute("/_app/accounts/$accountId")({
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_app/accounts/$accountId")({
 
 function RouteComponent() {
 	const { accountId } = Route.useParams();
+	const [isAddingTransaction, setIsAddingTransaction] = useState(false);
 
 	const accountQuery = useAccount({
 		id: accountId,
@@ -19,7 +20,7 @@ function RouteComponent() {
 
 	const account = accountQuery.data;
 
-	if (!account) return;
+	if (!account) return null;
 
 	return (
 		<div>
@@ -31,12 +32,16 @@ function RouteComponent() {
 				</Badge>
 			</div>
 			<div className="my-8">
-				<Button>
+				<Button onClick={() => setIsAddingTransaction(true)}>
 					<PlusIcon />
 					Add Transaction
 				</Button>
 			</div>
-			<AccountTransactionTable accountId={accountId} />
+			<AccountTransactionTable
+				accountId={accountId}
+				isAddingTransaction={isAddingTransaction}
+				onCancelAdd={() => setIsAddingTransaction(false)}
+			/>
 		</div>
 	);
 }
