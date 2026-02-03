@@ -4,18 +4,32 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { usePayees } from "@/features/payees/api/get-payees";
+import { CreatableSelect } from "@/components/ui/createable-select";
 
 interface EditableTransactionRowProps {
 	onCancel: () => void;
 }
 
 export function EditableTransactionRow({ onCancel }: EditableTransactionRowProps) {
+	const payeesQuery = usePayees();
+
 	const [date, setDate] = useState<Date | undefined>(new Date());
 	const [payee, setPayee] = useState("");
 	const [category, setCategory] = useState("");
 	const [memo, setMemo] = useState("");
 	const [outflow, setOutflow] = useState("");
 	const [inflow, setInflow] = useState("");
+
+	const payees =
+		payeesQuery.data?.map((payee) => ({
+			label: payee.name,
+			value: payee.id,
+		})) || [];
+
+	const handleCreatePayee = async (name: string) => {
+		console.log(name);
+	};
 
 	return (
 		<TableRow className="bg-background">
@@ -28,12 +42,20 @@ export function EditableTransactionRow({ onCancel }: EditableTransactionRowProps
 				/>
 			</TableCell>
 			<TableCell>
-				<Input
+				<CreatableSelect
+					options={payees}
 					value={payee}
-					onChange={(e) => setPayee(e.target.value)}
+					onChange={setPayee}
+					onCreate={handleCreatePayee}
 					placeholder="Payee"
 					className="h-8"
 				/>
+				{/* <Input */}
+				{/* 	value={payee} */}
+				{/* 	onChange={(e) => setPayee(e.target.value)} */}
+				{/* 	placeholder="Payee" */}
+				{/* 	className="h-8" */}
+				{/* /> */}
 			</TableCell>
 			<TableCell>
 				<Input
