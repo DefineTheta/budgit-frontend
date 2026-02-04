@@ -7,6 +7,7 @@ import { usePayees } from "@/features/payees/api/get-payees";
 import { CreatableSelect } from "@/components/ui/createable-select";
 import { useCategories } from "@/features/categories/api/get-categories";
 import { useCreatePayee } from "@/features/payees/api/create-payee";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface EditableTransactionRowProps {
 	onCancel: () => void;
@@ -75,6 +76,9 @@ export function EditableTransactionRow({
 	return (
 		<>
 			<TableRow className="bg-muted/50 border-b-0">
+				<TableCell>
+					<Checkbox checked={true} />
+				</TableCell>
 				<TableCell>
 					<DatePicker
 						date={date}
