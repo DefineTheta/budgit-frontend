@@ -5,6 +5,9 @@ import type { Transaction } from "@/features/transactions/config/schemas";
 import { EditableTransactionRow } from "./editable-transaction-row";
 import { useCreateTransaction } from "../api/create-transaction";
 import { Checkbox } from "@/components/ui/checkbox";
+import React from "react";
+import { TransactionsToolbar } from "./transactions-toolbar";
+import { useDeleteTransactions } from "../api/delete-transaction";
 
 interface AccountTransactionTableProps {
 	accountId: string;
@@ -102,6 +105,8 @@ export const AccountTransactionTable = ({
 	isAddingTransaction = false,
 	onCancelAdd,
 }: AccountTransactionTableProps) => {
+	const [rowSelection, setRowSelection] = React.useState({});
+
 	const transactionsQuery = useTransactions({
 		accountId,
 	});
@@ -110,6 +115,13 @@ export const AccountTransactionTable = ({
 		useCreateTransaction({
 			mutationConfig: {
 				onSuccess: () => onCancelAdd?.(),
+			},
+		});
+
+	const { mutate: deleteTransactionMutation, isPending: deletingTransaction } =
+		useDeleteTransactions({
+			mutationConfig: {
+				onSuccess: () => setRowSelection({}),
 			},
 		});
 
@@ -138,18 +150,35 @@ export const AccountTransactionTable = ({
 		});
 	};
 
+	const handleTransactionsDelete = (rowsToDelete: Transaction[]) => {
+		console.log(rowsToDelete);
+
+		rowsToDelete.forEach((row) =>
+			deleteTransactionMutation({
+				data: row,
+			}),
+		);
+	};
+
 	return (
-		<DataTable
-			columns={columns}
-			data={transactions}
-			prependedRow={
-				isAddingTransaction && onCancelAdd ? (
-					<EditableTransactionRow
-						onCancel={onCancelAdd}
-						onSave={handleTransactionCreate}
-					/>
-				) : undefined
-			}
-		/>
+		<div className="relative space-y-4">
+			<DataTable
+				columns={columns}
+				data={transactions}
+				prependedRow={
+					isAddingTransaction && onCancelAdd ? (
+						<EditableTransactionRow
+							onCancel={onCancelAdd}
+							onSave={handleTransactionCreate}
+						/>
+					) : undefined
+				}
+				rowSelection={rowSelection}
+				setRowSelection={setRowSelection}
+				renderToolbar={(table) => (
+					<TransactionsToolbar table={table} onDelete={handleTransactionsDelete} />
+				)}
+			/>
+		</div>
 	);
 };

@@ -1,4 +1,5 @@
 import {
+	type Table as TanstackTable,
 	type ColumnDef,
 	flexRender,
 	getCoreRowModel,
@@ -20,78 +21,86 @@ interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	prependedRow?: ReactNode;
+	rowSelection?: Record<string, boolean>;
+	setRowSelection?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+	renderToolbar?: (table: TanstackTable<TData>) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
 	columns,
 	data,
 	prependedRow,
+	rowSelection,
+	setRowSelection,
+	renderToolbar,
 }: DataTableProps<TData, TValue>) {
-	const [rowSelection, setRowSelection] = React.useState({});
-
 	const table = useReactTable({
 		data,
 		columns,
 		getCoreRowModel: getCoreRowModel(),
 		onRowSelectionChange: setRowSelection,
 		state: {
-			rowSelection,
+			rowSelection: rowSelection ?? {},
 		},
 		enableRowSelection: true,
 	});
 
 	return (
-		<div className="rounded-md border">
-			<Table className="table-fixed w-full">
-				<TableHeader>
-					{table.getHeaderGroups().map((headerGroup) => (
-						<TableRow key={headerGroup.id}>
-							{headerGroup.headers.map((header) => {
-								const isFluid = header.column.columnDef.meta?.fluid;
+		<div className="space-y-4">
+			{renderToolbar && renderToolbar(table)}
 
-								return (
-									<TableHead
-										key={header.id}
-										style={{
-											width: isFluid ? "100%" : `${header.getSize()}px`,
-											minWidth: isFluid ? "200px" : undefined,
-										}}
-										className="font-medium"
+			<div className="rounded-md border">
+				<Table className="table-fixed w-full">
+					<TableHeader>
+						{table.getHeaderGroups().map((headerGroup) => (
+							<TableRow key={headerGroup.id}>
+								{headerGroup.headers.map((header) => {
+									const isFluid = header.column.columnDef.meta?.fluid;
+
+									return (
+										<TableHead
+											key={header.id}
+											style={{
+												width: isFluid ? "100%" : `${header.getSize()}px`,
+												minWidth: isFluid ? "200px" : undefined,
+											}}
+											className="font-medium"
+										>
+											{header.isPlaceholder
+												? null
+												: flexRender(header.column.columnDef.header, header.getContext())}
+										</TableHead>
+									);
+								})}
+							</TableRow>
+						))}
+					</TableHeader>
+					<TableBody>
+						{prependedRow}
+						{table.getRowModel().rows?.length
+							? table.getRowModel().rows.map((row) => (
+									<TableRow
+										key={row.id}
+										data-state={row.getIsSelected() && "selected"}
+										className="h-10"
 									>
-										{header.isPlaceholder
-											? null
-											: flexRender(header.column.columnDef.header, header.getContext())}
-									</TableHead>
-								);
-							})}
-						</TableRow>
-					))}
-				</TableHeader>
-				<TableBody>
-					{prependedRow}
-					{table.getRowModel().rows?.length
-						? table.getRowModel().rows.map((row) => (
-								<TableRow
-									key={row.id}
-									data-state={row.getIsSelected() && "selected"}
-									className="h-10"
-								>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(cell.column.columnDef.cell, cell.getContext())}
+										{row.getVisibleCells().map((cell) => (
+											<TableCell key={cell.id}>
+												{flexRender(cell.column.columnDef.cell, cell.getContext())}
+											</TableCell>
+										))}
+									</TableRow>
+								))
+							: !prependedRow && (
+									<TableRow>
+										<TableCell colSpan={columns.length} className="h-24 text-center">
+											No results.
 										</TableCell>
-									))}
-								</TableRow>
-							))
-						: !prependedRow && (
-								<TableRow>
-									<TableCell colSpan={columns.length} className="h-24 text-center">
-										No results.
-									</TableCell>
-								</TableRow>
-							)}
-				</TableBody>
-			</Table>
+									</TableRow>
+								)}
+					</TableBody>
+				</Table>
+			</div>
 		</div>
 	);
 }
