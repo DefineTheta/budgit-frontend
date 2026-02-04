@@ -26,7 +26,7 @@ export const useCreateTransaction = ({
 	return useMutation({
 		onSuccess: (...args) => {
 			queryClient.invalidateQueries({
-				queryKey: getTransactionsQueryOptions(args[0].account_id).queryKey,
+				queryKey: getTransactionsQueryOptions(args[1].data.account_id).queryKey,
 			});
 			onSuccess?.(...args);
 		},

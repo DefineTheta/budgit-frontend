@@ -112,11 +112,7 @@ export const AccountTransactionTable = ({
 	});
 
 	const { mutate: createTransactionMutation, isPending: creatingTransaction } =
-		useCreateTransaction({
-			mutationConfig: {
-				onSuccess: () => onCancelAdd?.(),
-			},
-		});
+		useCreateTransaction();
 
 	const { mutate: deleteTransactionMutation, isPending: deletingTransaction } =
 		useDeleteTransactions({
@@ -129,30 +125,37 @@ export const AccountTransactionTable = ({
 
 	if (!transactions) return null;
 
-	const handleTransactionCreate = (data: {
-		date: Date;
-		payee: string;
-		category: string;
-		memo: string;
-		outflow: number;
-		inflow: number;
-	}) => {
-		createTransactionMutation({
-			data: {
-				date: data.date,
-				account_id: accountId,
-				payee_id: data.payee,
-				category_id: data.category,
-				memo: data.memo,
-				outflow: data.outflow,
-				inflow: data.inflow,
+	const handleTransactionCreate = (
+		data: {
+			date: Date;
+			payee: string;
+			category: string;
+			memo: string;
+			outflow: number;
+			inflow: number;
+		},
+		createMore = false,
+	) => {
+		console.log("Crete more", createMore);
+		createTransactionMutation(
+			{
+				data: {
+					date: data.date,
+					account_id: accountId,
+					payee_id: data.payee,
+					category_id: data.category,
+					memo: data.memo,
+					outflow: data.outflow,
+					inflow: data.inflow,
+				},
 			},
-		});
+			{
+				onSuccess: () => (createMore ? undefined : onCancelAdd?.()),
+			},
+		);
 	};
 
 	const handleTransactionsDelete = (rowsToDelete: Transaction[]) => {
-		console.log(rowsToDelete);
-
 		rowsToDelete.forEach((row) =>
 			deleteTransactionMutation({
 				data: row,

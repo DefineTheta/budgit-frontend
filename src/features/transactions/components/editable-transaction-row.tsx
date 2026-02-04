@@ -8,17 +8,21 @@ import { CreatableSelect } from "@/components/ui/createable-select";
 import { useCategories } from "@/features/categories/api/get-categories";
 import { useCreatePayee } from "@/features/payees/api/create-payee";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useCreateCategory } from "@/features/categories/api/create-category";
 
 interface EditableTransactionRowProps {
 	onCancel: () => void;
-	onSave: (data: {
-		date: Date;
-		payee: string;
-		category: string;
-		memo: string;
-		outflow: number;
-		inflow: number;
-	}) => void;
+	onSave: (
+		data: {
+			date: Date;
+			payee: string;
+			category: string;
+			memo: string;
+			outflow: number;
+			inflow: number;
+		},
+		createMore: boolean,
+	) => void;
 }
 
 export function EditableTransactionRow({
@@ -41,6 +45,13 @@ export function EditableTransactionRow({
 		},
 	});
 
+	const { mutate: createCategoryMutation, isPending: creatingCategory } =
+		useCreateCategory({
+			mutationConfig: {
+				onSuccess: (category) => setCategory(category.id),
+			},
+		});
+
 	const payees =
 		payeesQuery.data?.map((payee) => ({
 			label: payee.name,
@@ -54,23 +65,33 @@ export function EditableTransactionRow({
 		})) || [];
 
 	const handleCreatePayee = async (name: string) => {
-		console.log(name);
 		createPayeeMutation({ data: { name } });
 	};
 
 	const handleCreateCategories = async (name: string) => {
-		console.log(name);
+		createCategoryMutation({ data: { name } });
 	};
 
-	const handleCreateTransaction = async () => {
-		onSave({
-			date,
-			payee,
-			category,
-			memo,
-			outflow: outflow * 100,
-			inflow: inflow * 100,
-		});
+	const handleCreateTransaction = async (createMore = false) => {
+		onSave(
+			{
+				date,
+				payee,
+				category,
+				memo,
+				outflow: outflow * 100,
+				inflow: inflow * 100,
+			},
+			createMore,
+		);
+
+		if (createMore) {
+			setPayee("");
+			setCategory("");
+			setMemo("");
+			setOutflow(0);
+			setInflow(0);
+		}
 	};
 
 	return (
@@ -142,8 +163,10 @@ export function EditableTransactionRow({
 			<TableRow className="bg-muted/50">
 				<TableCell colSpan={100}>
 					<div className="flex justify-end gap-2">
-						<Button onClick={handleCreateTransaction}>Save</Button>
-						<Button>Save and add another</Button>
+						<Button onClick={() => handleCreateTransaction()}>Save</Button>
+						<Button onClick={() => handleCreateTransaction(true)}>
+							Save and add another
+						</Button>
 						<Button variant="outline" onClick={onCancel}>
 							Cancel
 						</Button>
