@@ -4,25 +4,38 @@ import { type Category, CategorySchema } from "@/features/categories/config/sche
 import { api } from "@/lib/api-client";
 import type { QueryConfig } from "@/lib/react-query";
 
-export const getCategories = async (): Promise<Category[]> => {
-	const response = await api.get<Category[]>("/categories");
+export const categoriesListsQueryKey = ["categories", "list"] as const;
+export type GetCategoriesQueryParams = {
+	expand?: string;
+};
+
+export const getCategories = async (
+	queryParams?: GetCategoriesQueryParams,
+): Promise<Category[]> => {
+	const response = await api.get<Category[]>("/categories", {
+		params: queryParams,
+	});
 	return z.array(CategorySchema).parse(response);
 };
 
-export const getCategoriesQueryOptions = () => {
+export const getCategoriesQueryOptions = (queryParams?: GetCategoriesQueryParams) => {
 	return queryOptions({
-		queryKey: ["categories"],
-		queryFn: getCategories,
+		queryKey: [...categoriesListsQueryKey, queryParams],
+		queryFn: () => getCategories(queryParams),
 	});
 };
 
 type UseCategoriesOptions = {
+	queryParams?: GetCategoriesQueryParams;
 	queryConfig?: QueryConfig<typeof getCategoriesQueryOptions>;
 };
 
-export const useCategories = ({ queryConfig }: UseCategoriesOptions = {}) => {
+export const useCategories = ({
+	queryParams,
+	queryConfig,
+}: UseCategoriesOptions = {}) => {
 	return useQuery({
-		...getCategoriesQueryOptions(),
+		...getCategoriesQueryOptions(queryParams),
 		...queryConfig,
 	});
 };

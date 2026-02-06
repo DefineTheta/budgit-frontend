@@ -3,6 +3,12 @@ import z from "zod";
 export const CategorySchema = z.object({
 	id: z.uuid(),
 	name: z.string(),
+
+	stats: z
+		.object({
+			total: z.number(),
+		})
+		.optional(),
 });
 
 export const createCategorySchema = z.object({

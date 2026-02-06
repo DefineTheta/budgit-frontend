@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useAccounts } from "@/features/accounts";
 import { ACCOUNT_TYPE, ACCOUNT_TYPE_LABLES } from "@/features/accounts/config/constants";
+import { Coins, NotebookText } from "lucide-react";
 
 export const Sidebar = () => {
 	const accountsQuery = useAccounts();
@@ -20,7 +21,13 @@ export const Sidebar = () => {
 	};
 
 	return (
-		<div className="w-64 p-3 flex flex-col space-y-4 bg-primary-foreground">
+		<div className="w-64 py-3 px-2 flex flex-col space-y-4 bg-primary-foreground">
+			<Link to="/budget">
+				<div class="my-2 px-2 py-2 rounded-md cursor-pointer hover:bg-secondary flex items-center">
+					<Coins className="mr-2" />
+					<span>Budget</span>
+				</div>
+			</Link>
 			{Object.entries(groupedAccouts)
 				.filter(([_, accounts]) => accounts.length)
 				.map(([name, accounts]) => (
