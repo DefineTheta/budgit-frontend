@@ -2,6 +2,7 @@ import { useCategories } from "@/features/categories/api/get-categories";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Category } from "@/features/categories/config/schemas";
 import { DataTable } from "@/components/ui/data-table";
+import { EditableAllocatedCell } from "./editable-allocated-cell";
 
 const columns: ColumnDef<Category>[] = [
 	{
@@ -13,9 +14,16 @@ const columns: ColumnDef<Category>[] = [
 		},
 	},
 	{
+		id: "allocation",
+		header: () => <div className="text-right">Allocated</div>,
+		size: 120,
+		accessorFn: (row) => (row.allocations?.at(0)?.amount ?? 0) / 100,
+		cell: EditableAllocatedCell,
+	},
+	{
 		id: "activity",
-		header: "Activity",
-		size: 126,
+		header: () => <div className="text-right">Activity</div>,
+		size: 144,
 		cell: ({ row }) => {
 			const amount = (row.original.stats?.total ?? 0) / 100;
 			const formattedAmount = new Intl.NumberFormat("en-AU", {
@@ -23,7 +31,7 @@ const columns: ColumnDef<Category>[] = [
 				currency: "AUD",
 			}).format(amount);
 
-			return formattedAmount;
+			return <div className="text-right">{formattedAmount}</div>;
 		},
 	},
 ];
@@ -31,17 +39,19 @@ const columns: ColumnDef<Category>[] = [
 export const CategoryBudgetTable = () => {
 	const categoriesQuery = useCategories({
 		queryParams: {
-			expand: "stats",
+			expand: "stats,allocations,goal",
 		},
 	});
 
 	const categories = categoriesQuery?.data;
 
+	console.log({ categories });
+
 	if (!categories) return;
 
 	return (
 		<div>
-			<DataTable columns={columns} data={categories} />
+			<DataTable columns={columns} data={categories} disableHover />
 		</div>
 	);
 };

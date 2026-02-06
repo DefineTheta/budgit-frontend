@@ -16,8 +16,10 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import React from "react";
+import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData, TValue> {
+	disableHover?: boolean;
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	prependedRow?: ReactNode;
@@ -27,6 +29,7 @@ interface DataTableProps<TData, TValue> {
 }
 
 export function DataTable<TData, TValue>({
+	disableHover = false,
 	columns,
 	data,
 	prependedRow,
@@ -82,7 +85,7 @@ export function DataTable<TData, TValue>({
 									<TableRow
 										key={row.id}
 										data-state={row.getIsSelected() && "selected"}
-										className="h-10"
+										className={cn("h-10", disableHover && "hover:bg-transparent")}
 									>
 										{row.getVisibleCells().map((cell) => (
 											<TableCell key={cell.id}>
