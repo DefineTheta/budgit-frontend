@@ -2,12 +2,17 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Column, Row, Table } from "@tanstack/react-table";
 import React from "react";
+import type { Category } from "../config/schemas";
+import { useCreateAllocation } from "@/features/allocations/api/create-allocation";
+import { format, startOfMonth } from "date-fns";
+import { useUpdateAllocation } from "@/features/allocations/api/update-allocation";
 
 interface EditableAllocatedCellProps<TData> {
 	getValue: () => any;
 	row: Row<TData>;
 	column: Column<TData>;
 	table: Table<TData>;
+	month: Date;
 }
 
 export const EditableAllocatedCell = <TData,>({
@@ -15,12 +20,20 @@ export const EditableAllocatedCell = <TData,>({
 	row,
 	column,
 	table,
-}: EditableAllocatedCellProps<TData>) => {
+	month,
+}: EditableAllocatedCellProps<Category>) => {
 	const initialValue = getValue();
 	const [value, setValue] = React.useState(initialValue);
 	const [isEditing, setIsEditing] = React.useState(false);
 
 	const inputRef = React.useRef<HTMLInputElement>(null);
+
+	const { mutate: createAllocationMutation, isPending: isCreatingAllocation } =
+		useCreateAllocation();
+	const { mutate: updateAllocationMutation, isPending: isUpdatingAllocation } =
+		useUpdateAllocation();
+
+	const allocation = row.original.allocations?.at(0);
 
 	const formatCurrency = (amount: number) => {
 		return new Intl.NumberFormat("en-AU", {
@@ -34,7 +47,22 @@ export const EditableAllocatedCell = <TData,>({
 		const numericValue = parseFloat(value);
 
 		if (numericValue !== initialValue) {
-			console.log("HHJH");
+			if (allocation) {
+				updateAllocationMutation({
+					allocationId: allocation.id,
+					data: {
+						amount: numericValue * 100,
+					},
+				});
+			} else {
+				createAllocationMutation({
+					categoryId: row.original.id,
+					data: {
+						month: format(startOfMonth(month), "yyy-MM-dd"),
+						amount: numericValue * 100,
+					},
+				});
+			}
 		}
 	};
 
