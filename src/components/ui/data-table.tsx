@@ -26,6 +26,7 @@ interface DataTableProps<TData, TValue> {
 	rowSelection?: Record<string, boolean>;
 	setRowSelection?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 	renderToolbar?: (table: TanstackTable<TData>) => React.ReactNode;
+	onEdit?: (row: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -36,6 +37,7 @@ export function DataTable<TData, TValue>({
 	rowSelection,
 	setRowSelection,
 	renderToolbar,
+	onEdit,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -46,6 +48,9 @@ export function DataTable<TData, TValue>({
 			rowSelection: rowSelection ?? {},
 		},
 		enableRowSelection: true,
+		meta: {
+			onEdit,
+		},
 	});
 
 	return (

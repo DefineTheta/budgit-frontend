@@ -1,5 +1,5 @@
 import z from "zod";
-import { GOAL_TYPE } from "./constants";
+import { GoalSchema } from "@/features/goals/config/schemas";
 
 export const CategorySchema = z.object({
 	id: z.uuid(),
@@ -18,19 +18,7 @@ export const CategorySchema = z.object({
 		})
 		.array()
 		.optional(),
-	goal: z
-		.object({
-			id: z.int(),
-			goal_type: z.union([
-				z.literal(GOAL_TYPE.BUILDER),
-				z.literal(GOAL_TYPE.SPENDING),
-				z.literal(GOAL_TYPE.BALANCE),
-			]),
-			amount: z.int(),
-			due_date: z.coerce.date(),
-		})
-		.nullable()
-		.optional(),
+	goal: GoalSchema.nullable().optional(),
 });
 
 export const createCategorySchema = z.object({
