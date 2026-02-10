@@ -10,10 +10,14 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useCreateGoal } from "../../api/create-goal";
+import { useUpdateGoal } from "../../api/update-goal";
+import type { MutationOptions } from "@tanstack/react-query";
 
 interface MonthlyGoalFormProps {
-	goal: CreateGoalInput;
+	goal?: CreateGoalInput;
+	goalId?: string;
 	categoryId: string;
+	onSuccess: () => void;
 }
 
 const day = [
@@ -51,22 +55,49 @@ const day = [
 	{ label: "Last day of month", value: "32" },
 ];
 
-export const MonthlyGoalForm = ({ goal, categoryId }: MonthlyGoalFormProps) => {
+export const MonthlyGoalForm = ({
+	goal,
+	goalId,
+	categoryId,
+	onSuccess,
+}: MonthlyGoalFormProps) => {
 	const { mutate: createGoalMutation, isPending: isCreatingGoal } = useCreateGoal();
+	const { mutate: updateGoalMutation, isPending: isUpdatingGoal } = useUpdateGoal();
 
 	const form = useForm({
-		defaultValues: goal,
+		defaultValues: goal ? { ...goal, amount: goal.amount / 100 } : undefined,
 		validators: {
 			onSubmit: CreateGoalSchema,
 		},
-		onSubmit: (e) =>
-			createGoalMutation({
-				categoryId,
-				data: {
-					...e.value,
-					amount: e.value.amount * 100,
-				},
-			}),
+		onSubmit: (e) => {
+			const data = {
+				...e.value,
+				repeat_day_week: undefined,
+				repeat_date_year: undefined,
+				amount: e.value.amount * 100,
+			};
+			const options = {
+				onSuccess,
+			};
+
+			if (goal && goalId) {
+				updateGoalMutation(
+					{
+						goalId,
+						data,
+					},
+					options,
+				);
+			} else {
+				createGoalMutation(
+					{
+						categoryId,
+						data,
+					},
+					options,
+				);
+			}
+		},
 	});
 
 	return (
@@ -77,7 +108,7 @@ export const MonthlyGoalForm = ({ goal, categoryId }: MonthlyGoalFormProps) => {
 				form.handleSubmit();
 			}}
 		>
-			<FieldGroup>
+			<FieldGroup className="flex flex-col -space-y-3">
 				<form.Field
 					name="amount"
 					children={(field) => {
@@ -90,7 +121,7 @@ export const MonthlyGoalForm = ({ goal, categoryId }: MonthlyGoalFormProps) => {
 									name={field.name}
 									value={field.state.value}
 									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(parseFloat(e.target.value))}
+									onChange={(e) => field.handleChange(parseFloat(e.target.value) || 0)}
 									aria-invalid={isInvalid}
 									autoComplete="off"
 								/>

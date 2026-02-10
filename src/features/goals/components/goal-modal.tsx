@@ -8,9 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MonthlyGoalForm } from "./forms/monthly-goal-form";
+import { useGoal } from "../api/get-goal";
 
 interface GoalModalProps {
-	goalId: string | null;
+	goalId?: string;
 	categoryName: string;
 	categoryId: string;
 	open: boolean;
@@ -28,7 +29,15 @@ export function GoalModal({
 	onOpenChange,
 	onSave,
 }: GoalModalProps) {
-	if (!goalId && edit) return null;
+	const goalQuery = useGoal({
+		id: goalId ?? "",
+		queryConfig: {
+			enabled: !!goalId,
+		},
+	});
+
+	const goal = goalQuery.data;
+	if (!goal && edit) return null;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,14 +61,26 @@ export function GoalModal({
 				</DialogHeader>
 
 				<Tabs defaultValue="month" className="mt-4 w-full">
-					<TabsList className="mb-2 w-full">
+					<TabsList className="mb-4 w-full">
 						<TabsTrigger value="week">Weekly</TabsTrigger>
 						<TabsTrigger value="month">Monthly</TabsTrigger>
 						<TabsTrigger value="year">Yearly</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="month">
-						<MonthlyGoalForm goal={{}} categoryId={categoryId} />
+						<MonthlyGoalForm
+							goal={
+								goal
+									? {
+											...goal,
+											goal_type_id: goal.goal_type,
+										}
+									: undefined
+							}
+							goalId={goalId}
+							categoryId={categoryId}
+							onSuccess={() => onOpenChange(false)}
+						/>
 					</TabsContent>
 				</Tabs>
 

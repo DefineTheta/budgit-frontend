@@ -17,13 +17,15 @@ export const GoalSchema = z.object({
 export const CreateGoalSchema = z.object({
 	goal_type_id: z.int().gte(1).lte(3),
 	amount: z.number().int(),
-	repeat_day_week: z.int().gte(1).lte(7).optional(),
-	repeat_day_month: z.int().gte(1).lte(32).optional(),
-	due_date: z
+	repeat_day_week: z.int().gte(1).lte(7).nullable().optional(),
+	repeat_day_month: z.int().gte(1).lte(32).nullable().optional(),
+	repeat_date_year: z
 		.string()
 		.regex(/^\d{2}-\d{2}$/, "Due date must be in MM-DD format")
+		.nullable()
 		.optional(),
 });
+export const UpdateGoalSchema = CreateGoalSchema.partial();
 
 export type Goal = z.infer<typeof GoalSchema>;
 

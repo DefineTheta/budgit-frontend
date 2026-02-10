@@ -43,7 +43,7 @@ function RouteComponent() {
 			<GoalModal
 				open={isGoalModalOpen}
 				edit={false}
-				goalId={null}
+				goalId={editingGoalId}
 				categoryName={selectedCategory?.name ?? ""}
 				categoryId={selectedCategory?.id ?? ""}
 				onOpenChange={handleGoalModalClose}
