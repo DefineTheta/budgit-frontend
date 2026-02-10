@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { CategorySelect } from "@/features/categories/components/category-select";
 import { PayeeSelect } from "@/features/payees/components/payee-select";
+import { DatePickerInput } from "@/components/ui/date-picker";
 
 interface EditableTransactionRowProps {
 	onCancel: () => void;
@@ -26,7 +26,7 @@ export function EditableTransactionRow({
 	onCancel,
 	onSave,
 }: EditableTransactionRowProps) {
-	const [date, setDate] = useState<Date>(new Date());
+	const [date, setDate] = useState<Date | undefined>(new Date());
 	const [payee, setPayee] = useState("");
 	const [category, setCategory] = useState("");
 	const [memo, setMemo] = useState("");
@@ -36,7 +36,7 @@ export function EditableTransactionRow({
 	const handleCreateTransaction = async (createMore = false) => {
 		onSave(
 			{
-				date,
+				date: date ?? new Date(),
 				payee,
 				category,
 				memo,
@@ -62,12 +62,14 @@ export function EditableTransactionRow({
 					<Checkbox checked={true} />
 				</TableCell>
 				<TableCell>
-					<DatePicker
-						date={date}
-						onDateChange={setDate}
-						placeholder="Select date"
-						className="h-8 text-sm"
-					/>
+					{/* <CalendarDatePicker date={date} onDateSelect={setDate} /> */}
+					{/* <DatePicker */}
+					{/* 	date={date} */}
+					{/* 	onDateChange={setDate} */}
+					{/* 	placeholder="Select date" */}
+					{/* 	className="h-8 text-sm" */}
+					{/* /> */}
+					<DatePickerInput date={date} onDateChange={setDate} />
 				</TableCell>
 				<TableCell>
 					<PayeeSelect value={payee} onChange={setPayee} className="h-8" />
