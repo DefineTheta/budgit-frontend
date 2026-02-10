@@ -1,6 +1,4 @@
 import { useForm } from "@tanstack/react-form";
-import { CreateGoalSchema, type CreateGoalInput } from "@/features/goals/config/schemas";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -9,9 +7,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { type CreateGoalInput, CreateGoalSchema } from "@/features/goals/config/schemas";
 import { useCreateGoal } from "../../api/create-goal";
 import { useUpdateGoal } from "../../api/update-goal";
-import type { MutationOptions } from "@tanstack/react-query";
 
 interface MonthlyGoalFormProps {
 	goal?: CreateGoalInput;
@@ -61,8 +59,8 @@ export const MonthlyGoalForm = ({
 	categoryId,
 	onSuccess,
 }: MonthlyGoalFormProps) => {
-	const { mutate: createGoalMutation, isPending: isCreatingGoal } = useCreateGoal();
-	const { mutate: updateGoalMutation, isPending: isUpdatingGoal } = useUpdateGoal();
+	const { mutate: createGoalMutation } = useCreateGoal();
+	const { mutate: updateGoalMutation } = useUpdateGoal();
 
 	const form = useForm({
 		defaultValues: goal ? { ...goal, amount: goal.amount / 100 } : undefined,
@@ -105,103 +103,118 @@ export const MonthlyGoalForm = ({
 			id="monthly-goal-form"
 			onSubmit={(e) => {
 				e.preventDefault();
+				e.stopPropagation();
 				form.handleSubmit();
 			}}
+			className="space-y-4"
 		>
-			<FieldGroup className="flex flex-col -space-y-3">
-				<form.Field
-					name="amount"
-					children={(field) => {
-						const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-						return (
-							<Field data-invalid={isInvalid}>
-								<FieldLabel htmlFor={field.name}>I want to save</FieldLabel>
-								<Input
-									id={field.name}
-									name={field.name}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(parseFloat(e.target.value) || 0)}
-									aria-invalid={isInvalid}
-									autoComplete="off"
-								/>
-								{isInvalid && <FieldError errors={field.state.meta.errors} />}
-							</Field>
-						);
-					}}
-				/>
-				<form.Field
-					name="repeat_day_month"
-					children={(field) => {
-						const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-						return (
-							<Field data-invalid={isInvalid}>
-								<FieldLabel htmlFor={field.name}>By</FieldLabel>
-								<Select
-									name={field.name}
-									value={String(field.state.value)}
-									onValueChange={(val) => field.handleChange(Number(val))}
-								>
-									<SelectTrigger
-										id="monthly-goal-form-select-day"
-										aria-invalid={isInvalid}
-									>
-										<SelectValue placeholder="Select" />
-									</SelectTrigger>
-									<SelectContent>
-										{day.map((d) => (
-											<SelectItem key={d.value} value={d.value}>
-												{d.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{isInvalid && <FieldError errors={field.state.meta.errors} />}
-							</Field>
-						);
-					}}
-				/>
-				<form.Field
-					name="goal_type_id"
-					children={(field) => {
-						const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-						return (
-							<Field data-invalid={isInvalid}>
-								<FieldLabel htmlFor={field.name}>Next month I want to</FieldLabel>
-								<Select
-									name={field.name}
-									value={String(field.state.value)}
-									onValueChange={(val) => field.handleChange(Number(val))}
-								>
-									<SelectTrigger
-										id="monthly-goal-form-select-goal-type"
-										aria-invalid={isInvalid}
-									>
-										<SelectValue placeholder="Select" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem key={1} value="1">
-											Set aside another{" "}
-											{Intl.NumberFormat("en-AU", {
-												style: "currency",
-												currency: "AUD",
-											}).format(form.getFieldValue("amount") ?? 0)}
+			<form.Field name="amount">
+				{(field) => {
+					const error = field.state.meta.errors[0];
+					const errorMessage = typeof error === "string" ? error : error?.message;
+					return (
+						<div>
+							<label htmlFor={field.name} className="text-sm font-medium">
+								I want to save
+							</label>
+							<Input
+								id={field.name}
+								name={field.name}
+								type="number"
+								min="0"
+								step="0.01"
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(parseFloat(e.target.value) || 0)}
+								placeholder="0.00"
+								autoComplete="off"
+							/>
+							{errorMessage && (
+								<p className="text-sm text-destructive mt-1">{errorMessage}</p>
+							)}
+						</div>
+					);
+				}}
+			</form.Field>
+			<form.Field name="repeat_day_month">
+				{(field) => {
+					const error = field.state.meta.errors[0];
+					const errorMessage = typeof error === "string" ? error : error?.message;
+					return (
+						<div>
+							<label
+								htmlFor="monthly-goal-form-select-day"
+								className="text-sm font-medium"
+							>
+								By
+							</label>
+							<Select
+								name={field.name}
+								value={String(field.state.value)}
+								onValueChange={(val) => field.handleChange(Number(val))}
+							>
+								<SelectTrigger id="monthly-goal-form-select-day">
+									<SelectValue placeholder="Select" />
+								</SelectTrigger>
+								<SelectContent>
+									{day.map((d) => (
+										<SelectItem key={d.value} value={d.value}>
+											{d.label}
 										</SelectItem>
-										<SelectItem key={2} value="2">
-											Refil upto{" "}
-											{Intl.NumberFormat("en-AU", {
-												style: "currency",
-												currency: "AUD",
-											}).format(form.getFieldValue("amount") ?? 0)}
-										</SelectItem>
-									</SelectContent>
-								</Select>
-								{isInvalid && <FieldError errors={field.state.meta.errors} />}
-							</Field>
-						);
-					}}
-				/>
-			</FieldGroup>
+									))}
+								</SelectContent>
+							</Select>
+							{errorMessage && (
+								<p className="text-sm text-destructive mt-1">{errorMessage}</p>
+							)}
+						</div>
+					);
+				}}
+			</form.Field>
+			<form.Field name="goal_type_id">
+				{(field) => {
+					const error = field.state.meta.errors[0];
+					const errorMessage = typeof error === "string" ? error : error?.message;
+					return (
+						<div>
+							<label
+								htmlFor="monthly-goal-form-select-goal-type"
+								className="text-sm font-medium"
+							>
+								Next month I want to
+							</label>
+							<Select
+								name={field.name}
+								value={String(field.state.value)}
+								onValueChange={(val) => field.handleChange(Number(val))}
+							>
+								<SelectTrigger id="monthly-goal-form-select-goal-type">
+									<SelectValue placeholder="Select" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem key={1} value="1">
+										Set aside another{" "}
+										{Intl.NumberFormat("en-AU", {
+											style: "currency",
+											currency: "AUD",
+										}).format(form.getFieldValue("amount") ?? 0)}
+									</SelectItem>
+									<SelectItem key={2} value="2">
+										Refil upto{" "}
+										{Intl.NumberFormat("en-AU", {
+											style: "currency",
+											currency: "AUD",
+										}).format(form.getFieldValue("amount") ?? 0)}
+									</SelectItem>
+								</SelectContent>
+							</Select>
+							{errorMessage && (
+								<p className="text-sm text-destructive mt-1">{errorMessage}</p>
+							)}
+						</div>
+					);
+				}}
+			</form.Field>
 		</form>
 	);
 };

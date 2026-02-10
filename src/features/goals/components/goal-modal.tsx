@@ -2,13 +2,14 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MonthlyGoalForm } from "./forms/monthly-goal-form";
 import { useGoal } from "../api/get-goal";
+import { MonthlyGoalForm } from "./forms/monthly-goal-form";
 
 interface GoalModalProps {
 	goalId?: string;
@@ -17,7 +18,6 @@ interface GoalModalProps {
 	open: boolean;
 	edit: boolean;
 	onOpenChange: (open: boolean) => void;
-	onSave: () => void;
 }
 
 export function GoalModal({
@@ -27,7 +27,6 @@ export function GoalModal({
 	open,
 	edit,
 	onOpenChange,
-	onSave,
 }: GoalModalProps) {
 	const goalQuery = useGoal({
 		id: goalId ?? "",
@@ -43,7 +42,7 @@ export function GoalModal({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[425px]">
 				<DialogHeader>
-					<DialogTitle>
+					<DialogTitle className="mb-3">
 						{edit ? (
 							<div>
 								Edit goal for
@@ -58,10 +57,13 @@ export function GoalModal({
 							</div>
 						)}
 					</DialogTitle>
+					<DialogDescription>
+						Set how much to save and when the goal should be met each month.
+					</DialogDescription>
 				</DialogHeader>
 
-				<Tabs defaultValue="month" className="mt-4 w-full">
-					<TabsList className="mb-4 w-full">
+				<Tabs defaultValue="month" className="w-full">
+					<TabsList className="my-2 w-full">
 						<TabsTrigger value="week">Weekly</TabsTrigger>
 						<TabsTrigger value="month">Monthly</TabsTrigger>
 						<TabsTrigger value="year">Yearly</TabsTrigger>
