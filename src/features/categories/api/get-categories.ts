@@ -41,3 +41,10 @@ export const useCategories = ({
 		...queryConfig,
 	});
 };
+
+export const useGetCategories = ({
+	queryParams,
+	queryConfig,
+}: UseCategoriesOptions = {}) => {
+	return useCategories({ queryParams, queryConfig });
+};

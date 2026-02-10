@@ -1,14 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { usePayees } from "@/features/payees/api/get-payees";
-import { CreatableSelect } from "@/components/ui/createable-select";
-import { useCategories } from "@/features/categories/api/get-categories";
-import { useCreatePayee } from "@/features/payees/api/create-payee";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useCreateCategory } from "@/features/categories/api/create-category";
+import { CategorySelect } from "@/features/categories/components/category-select";
+import { PayeeSelect } from "@/features/payees/components/payee-select";
 
 interface EditableTransactionRowProps {
 	onCancel: () => void;
@@ -29,48 +26,12 @@ export function EditableTransactionRow({
 	onCancel,
 	onSave,
 }: EditableTransactionRowProps) {
-	const payeesQuery = usePayees();
-	const categoriesQuery = useCategories();
-
 	const [date, setDate] = useState<Date>(new Date());
 	const [payee, setPayee] = useState("");
 	const [category, setCategory] = useState("");
 	const [memo, setMemo] = useState("");
 	const [outflow, setOutflow] = useState(0);
 	const [inflow, setInflow] = useState(0);
-
-	const { mutate: createPayeeMutation, isPending: creatingPayee } = useCreatePayee({
-		mutationConfig: {
-			onSuccess: (payee) => setPayee(payee.id),
-		},
-	});
-
-	const { mutate: createCategoryMutation, isPending: creatingCategory } =
-		useCreateCategory({
-			mutationConfig: {
-				onSuccess: (category) => setCategory(category.id),
-			},
-		});
-
-	const payees =
-		payeesQuery.data?.map((payee) => ({
-			label: payee.name,
-			value: payee.id,
-		})) || [];
-
-	const categories =
-		categoriesQuery.data?.map((c) => ({
-			label: c.name,
-			value: c.id,
-		})) || [];
-
-	const handleCreatePayee = async (name: string) => {
-		createPayeeMutation({ data: { name } });
-	};
-
-	const handleCreateCategories = async (name: string) => {
-		createCategoryMutation({ data: { name } });
-	};
 
 	const handleCreateTransaction = async (createMore = false) => {
 		onSave(
@@ -109,24 +70,10 @@ export function EditableTransactionRow({
 					/>
 				</TableCell>
 				<TableCell>
-					<CreatableSelect
-						options={payees}
-						value={payee}
-						onChange={setPayee}
-						onCreate={handleCreatePayee}
-						placeholder="Payee"
-						className="h-8"
-					/>
+					<PayeeSelect value={payee} onChange={setPayee} className="h-8" />
 				</TableCell>
 				<TableCell>
-					<CreatableSelect
-						options={categories}
-						value={category}
-						onChange={setCategory}
-						onCreate={handleCreateCategories}
-						placeholder="Category"
-						className="h-8"
-					/>
+					<CategorySelect value={category} onChange={setCategory} className="h-8" />
 				</TableCell>
 				<TableCell>
 					<Input

@@ -26,3 +26,7 @@ export const usePayees = ({ queryConfig }: UsePayeesOptions = {}) => {
 		...queryConfig,
 	});
 };
+
+export const useGetPayees = ({ queryConfig }: UsePayeesOptions = {}) => {
+	return usePayees({ queryConfig });
+};

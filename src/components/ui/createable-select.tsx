@@ -145,6 +145,28 @@ export function CreatableSelect({
 								</CommandItem>
 							))}
 						</CommandGroup>
+
+						<CommandGroup>
+							<Button
+								variant="secondary"
+								size="sm"
+								className="h-8 w-full justify-start"
+								onClick={handleCreate}
+								disabled={isCreating}
+							>
+								{isCreating ? (
+									<span className="flex items-center gap-2">
+										<span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+										Creating...
+									</span>
+								) : (
+									<span className="flex items-center gap-2">
+										<Plus className="h-3 w-3" />
+										Create "{inputValue}"
+									</span>
+								)}
+							</Button>
+						</CommandGroup>
 					</CommandList>
 				</Command>
 			</PopoverContent>
