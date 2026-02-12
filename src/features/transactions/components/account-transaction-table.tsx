@@ -1,13 +1,17 @@
 import type { ColumnDef } from "@tanstack/react-table";
+import React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/data-table";
 import { useTransactions } from "@/features/transactions/api/get-transactions";
 import type { Transaction } from "@/features/transactions/config/schemas";
-import { EditableTransactionRow } from "./editable-transaction-row";
 import { useCreateTransaction } from "../api/create-transaction";
-import { Checkbox } from "@/components/ui/checkbox";
-import React from "react";
-import { TransactionsToolbar } from "./transactions-toolbar";
 import { useDeleteTransactions } from "../api/delete-transaction";
+import { useUpdateTransaction } from "../api/update-transaction";
+import {
+	EditableTransactionEditRow,
+	EditableTransactionRow,
+} from "./editable-transaction-row";
+import { TransactionsToolbar } from "./transactions-toolbar";
 
 interface AccountTransactionTableProps {
 	accountId: string;
@@ -106,20 +110,25 @@ export const AccountTransactionTable = ({
 	onCancelAdd,
 }: AccountTransactionTableProps) => {
 	const [rowSelection, setRowSelection] = React.useState({});
+	const [editingRowId, setEditingRowId] = React.useState<string | null>(null);
 
 	const transactionsQuery = useTransactions({
 		accountId,
 	});
 
-	const { mutate: createTransactionMutation, isPending: creatingTransaction } =
-		useCreateTransaction();
+	const { mutate: createTransactionMutation } = useCreateTransaction();
 
-	const { mutate: deleteTransactionMutation, isPending: deletingTransaction } =
-		useDeleteTransactions({
-			mutationConfig: {
-				onSuccess: () => setRowSelection({}),
-			},
-		});
+	const { mutate: deleteTransactionMutation } = useDeleteTransactions({
+		mutationConfig: {
+			onSuccess: () => setRowSelection({}),
+		},
+	});
+
+	const { mutate: updateTransactionMutation } = useUpdateTransaction({
+		mutationConfig: {
+			onSuccess: () => setEditingRowId(null),
+		},
+	});
 
 	const transactions = transactionsQuery.data;
 
@@ -156,11 +165,11 @@ export const AccountTransactionTable = ({
 	};
 
 	const handleTransactionsDelete = (rowsToDelete: Transaction[]) => {
-		rowsToDelete.forEach((row) =>
+		rowsToDelete.forEach((row) => {
 			deleteTransactionMutation({
 				data: row,
-			}),
-		);
+			});
+		});
 	};
 
 	return (
@@ -178,6 +187,22 @@ export const AccountTransactionTable = ({
 				}
 				rowSelection={rowSelection}
 				setRowSelection={setRowSelection}
+				onRowDoubleClick={(row) => setEditingRowId(row.id)}
+				renderRow={(row) =>
+					editingRowId === row.id ? (
+						<EditableTransactionEditRow
+							transaction={row}
+							onCancel={() => setEditingRowId(null)}
+							onSave={(data) =>
+								updateTransactionMutation({
+									transactionId: row.id,
+									accountId,
+									data,
+								})
+							}
+						/>
+					) : null
+				}
 				renderToolbar={(table) => (
 					<TransactionsToolbar table={table} onDelete={handleTransactionsDelete} />
 				)}

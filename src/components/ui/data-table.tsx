@@ -1,12 +1,12 @@
 import {
-	type Table as TanstackTable,
 	type ColumnDef,
 	flexRender,
 	getCoreRowModel,
+	type Table as TanstackTable,
 	useReactTable,
 } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-
+import React from "react";
 import {
 	Table,
 	TableBody,
@@ -15,7 +15,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import React from "react";
 import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData, TValue> {
@@ -27,6 +26,8 @@ interface DataTableProps<TData, TValue> {
 	setRowSelection?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 	renderToolbar?: (table: TanstackTable<TData>) => React.ReactNode;
 	onEdit?: (row: TData) => void;
+	onRowDoubleClick?: (row: TData) => void;
+	renderRow?: (row: TData) => React.ReactNode | null;
 }
 
 export function DataTable<TData, TValue>({
@@ -38,6 +39,8 @@ export function DataTable<TData, TValue>({
 	setRowSelection,
 	renderToolbar,
 	onEdit,
+	onRowDoubleClick,
+	renderRow,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -86,19 +89,31 @@ export function DataTable<TData, TValue>({
 					<TableBody>
 						{prependedRow}
 						{table.getRowModel().rows?.length
-							? table.getRowModel().rows.map((row) => (
-									<TableRow
-										key={row.id}
-										data-state={row.getIsSelected() && "selected"}
-										className={cn("h-10", disableHover && "hover:bg-transparent")}
-									>
-										{row.getVisibleCells().map((cell) => (
-											<TableCell key={cell.id}>
-												{flexRender(cell.column.columnDef.cell, cell.getContext())}
-											</TableCell>
-										))}
-									</TableRow>
-								))
+							? table.getRowModel().rows.map((row) => {
+									const customRow = renderRow?.(row.original);
+									if (customRow !== undefined && customRow !== null) {
+										return <React.Fragment key={row.id}>{customRow}</React.Fragment>;
+									}
+
+									return (
+										<TableRow
+											key={row.id}
+											data-state={row.getIsSelected() && "selected"}
+											className={cn("h-10", disableHover && "hover:bg-transparent")}
+											onDoubleClick={
+												onRowDoubleClick
+													? () => onRowDoubleClick(row.original)
+													: undefined
+											}
+										>
+											{row.getVisibleCells().map((cell) => (
+												<TableCell key={cell.id}>
+													{flexRender(cell.column.columnDef.cell, cell.getContext())}
+												</TableCell>
+											))}
+										</TableRow>
+									);
+								})
 							: !prependedRow && (
 									<TableRow>
 										<TableCell colSpan={columns.length} className="h-24 text-center">
