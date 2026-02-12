@@ -1,20 +1,23 @@
-import { endOfMonth, format } from "date-fns";
-import { AlertTriangle, Calendar, FileText, UploadCloud } from "lucide-react";
-import { useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { endOfMonth } from "date-fns";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { MonthPicker } from "@/components/ui/monthpicker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
+import { useGetCategories } from "@/features/categories/api/get-categories";
+import { useGetPayees } from "@/features/payees/api/get-payees";
+import { useCreateBatchTransactions } from "@/features/transactions/api/create-batch-transactions";
 import { useImportTransactions } from "@/features/transactions/api/import-transactions";
+import { AddTransactionsFromFileStepOne } from "@/features/transactions/components/add-transactions-from-file-step-one";
+import { AddTransactionsFromFileStepThree } from "@/features/transactions/components/add-transactions-from-file-step-three";
+import { AddTransactionsFromFileStepTwo } from "@/features/transactions/components/add-transactions-from-file-step-two";
+import type {
+	EditableDraft,
+	EditableField,
+} from "@/features/transactions/components/add-transactions-from-file-types";
 import { cn } from "@/lib/utils";
 import { extractTextFromPDF } from "@/utils/extract-pdf-text";
 import { sanitizeStatement } from "@/utils/statement-sanitizer";
@@ -22,11 +25,13 @@ import { sanitizeStatement } from "@/utils/statement-sanitizer";
 interface AddTransactionsFromFileModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	accountId: string;
 }
 
 export function AddTransactionsFromFileModal({
 	open,
 	onOpenChange,
+	accountId,
 }: AddTransactionsFromFileModalProps) {
 	const [file, setFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -34,10 +39,22 @@ export function AddTransactionsFromFileModal({
 	const [extractedText, setExtractedText] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [step, setStep] = useState<1 | 2 | 3>(1);
-	const [analysisResult, setAnalysisResult] = useState<string | null>(null);
 	const [referenceMonth, setReferenceMonth] = useState<Date | undefined>(undefined);
+	const [drafts, setDrafts] = useState<EditableDraft[]>([]);
+	const [editingCell, setEditingCell] = useState<{
+		id: string;
+		field: EditableField;
+	} | null>(null);
+	const [selectedDraftIds, setSelectedDraftIds] = useState<string[]>([]);
+	const [bulkPayeeId, setBulkPayeeId] = useState("");
+	const [bulkCategoryId, setBulkCategoryId] = useState("");
+	const [addError, setAddError] = useState<string | null>(null);
 	const { mutateAsync: importTransactions, isPending: isAnalyzing } =
 		useImportTransactions();
+	const { mutateAsync: createBatchTransactions, isPending: isCreatingBatch } =
+		useCreateBatchTransactions();
+	const categoriesQuery = useGetCategories();
+	const payeesQuery = useGetPayees();
 
 	const handleFile = (nextFile: File | null) => {
 		if (!nextFile) return;
@@ -70,7 +87,6 @@ export function AddTransactionsFromFileModal({
 			const result = await extractTextFromPDF(file);
 			const sanitizedResult = sanitizeStatement(result.text.trim());
 			setExtractedText(sanitizedResult || "No text found in PDF.");
-			setAnalysisResult(null);
 			setStep(2);
 		} catch (submitError) {
 			console.error("Failed to extract text from PDF:", submitError);
@@ -85,10 +101,111 @@ export function AddTransactionsFromFileModal({
 		setIsDragging(false);
 		setIsExtracting(false);
 		setExtractedText("");
-		setAnalysisResult(null);
 		setError(null);
 		setStep(1);
 		setReferenceMonth(undefined);
+		setDrafts([]);
+		setEditingCell(null);
+		setSelectedDraftIds([]);
+		setBulkPayeeId("");
+		setBulkCategoryId("");
+		setAddError(null);
+	};
+
+	const findCategoryId = useCallback(
+		(name: string) =>
+			categoriesQuery.data?.find(
+				(category) => category.name.toLowerCase() === name.toLowerCase(),
+			)?.id ?? "",
+		[categoriesQuery.data],
+	);
+
+	const findPayeeId = useCallback(
+		(name: string) =>
+			payeesQuery.data?.find((payee) => payee.name.toLowerCase() === name.toLowerCase())
+				?.id ?? "",
+		[payeesQuery.data],
+	);
+
+	const updateDraft = (id: string, updates: Partial<EditableDraft>) => {
+		setDrafts((prev) =>
+			prev.map((draft) => (draft.id === id ? { ...draft, ...updates } : draft)),
+		);
+	};
+
+	const toggleDraftSelection = (id: string, checked: boolean) => {
+		setSelectedDraftIds((prev) =>
+			checked ? [...prev, id] : prev.filter((draftId) => draftId !== id),
+		);
+	};
+
+	const toggleAllDrafts = (checked: boolean) => {
+		setSelectedDraftIds(checked ? drafts.map((draft) => draft.id) : []);
+	};
+
+	const applyBulkPayee = (value: string) => {
+		setBulkPayeeId(value);
+		setDrafts((prev) =>
+			prev.map((draft) =>
+				selectedDraftIds.includes(draft.id) ? { ...draft, payeeId: value } : draft,
+			),
+		);
+		setAddError(null);
+	};
+
+	const applyBulkCategory = (value: string) => {
+		setBulkCategoryId(value);
+		setDrafts((prev) =>
+			prev.map((draft) =>
+				selectedDraftIds.includes(draft.id) ? { ...draft, categoryId: value } : draft,
+			),
+		);
+		setAddError(null);
+	};
+
+	const payeeMap = useMemo(() => {
+		return new Map(payeesQuery.data?.map((payee) => [payee.id, payee.name]) ?? []);
+	}, [payeesQuery.data]);
+
+	const categoryMap = useMemo(() => {
+		return new Map(
+			categoriesQuery.data?.map((category) => [category.id, category.name]) ?? [],
+		);
+	}, [categoriesQuery.data]);
+
+	useEffect(() => {
+		if (!categoriesQuery.data && !payeesQuery.data) return;
+		setDrafts((prev) =>
+			prev.map((draft) => {
+				const nextDraft = { ...draft };
+				if (!nextDraft.categoryId && nextDraft.categoryName && categoriesQuery.data) {
+					nextDraft.categoryId = findCategoryId(nextDraft.categoryName);
+				}
+				if (!nextDraft.payeeId && nextDraft.payeeName && payeesQuery.data) {
+					nextDraft.payeeId = findPayeeId(nextDraft.payeeName);
+				}
+				return nextDraft;
+			}),
+		);
+	}, [categoriesQuery.data, findCategoryId, findPayeeId, payeesQuery.data]);
+
+	useEffect(() => {
+		setSelectedDraftIds((prev) =>
+			prev.filter((id) => drafts.some((draft) => draft.id === id)),
+		);
+	}, [drafts]);
+
+	useEffect(() => {
+		setSelectedDraftIds((prev) =>
+			prev.filter((id) => drafts.some((draft) => draft.id === id)),
+		);
+	}, [drafts]);
+
+	const formatCurrency = (amount: number) => {
+		return new Intl.NumberFormat("en-AU", {
+			style: "currency",
+			currency: "AUD",
+		}).format(amount);
 	};
 
 	const handleAnalyze = async () => {
@@ -109,7 +226,20 @@ export function AddTransactionsFromFileModal({
 					reference_date: referenceDate,
 				},
 			});
-			setAnalysisResult(JSON.stringify(result, null, 2));
+			setDrafts(
+				result.map((draft, index) => ({
+					id: `${draft.date}-${draft.merchant}-${index}`,
+					date: draft.date,
+					payeeId: findPayeeId(draft.merchant),
+					payeeName: draft.merchant,
+					categoryId: findCategoryId(draft.category),
+					categoryName: draft.category,
+					amount: draft.amount,
+					confidence: draft.confidence,
+				})),
+			);
+			setSelectedDraftIds([]);
+			setAddError(null);
 			setStep(3);
 		} catch (submitError) {
 			console.error("Failed to analyze transactions:", submitError);
@@ -118,6 +248,39 @@ export function AddTransactionsFromFileModal({
 	};
 
 	const fileSizeLabel = file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : null;
+	const allReady =
+		drafts.length > 0 && drafts.every((draft) => draft.payeeId && draft.categoryId);
+	const addTooltipMessage = !drafts.length
+		? "No transactions to add."
+		: "Assign a payee and category for every transaction.";
+
+	const handleAddTransactions = async () => {
+		const hasMissingAssignments = drafts.some(
+			(draft) => !draft.payeeId || !draft.categoryId,
+		);
+		if (hasMissingAssignments) {
+			setAddError("All transactions need an assigned payee and category.");
+			return;
+		}
+		setAddError(null);
+		try {
+			await createBatchTransactions({
+				data: drafts.map((draft) => ({
+					account_id: accountId,
+					category_id: draft.categoryId,
+					payee_id: draft.payeeId,
+					date: new Date(draft.date),
+					memo: null,
+					inflow: 0,
+					outflow: Math.round(draft.amount * 100),
+				})),
+			});
+			onOpenChange(false);
+		} catch (submitError) {
+			console.error("Failed to create transactions:", submitError);
+			setAddError("We couldn't add the transactions. Please try again.");
+		}
+	};
 
 	return (
 		<Dialog
@@ -129,7 +292,7 @@ export function AddTransactionsFromFileModal({
 				onOpenChange(nextOpen);
 			}}
 		>
-			<DialogContent className="sm:max-w-[520px]">
+			<DialogContent className={cn(step === 3 ? "sm:max-w-[980px]" : "sm:max-w-[520px]")}>
 				<DialogHeader>
 					<DialogTitle>Add transactions from file</DialogTitle>
 					<DialogDescription>
@@ -143,161 +306,56 @@ export function AddTransactionsFromFileModal({
 
 				<form onSubmit={handleSubmit} className="space-y-5">
 					{step === 1 ? (
-						<>
-							<input
-								id="transaction-file-input"
-								type="file"
-								accept="application/pdf"
-								className="sr-only"
-								onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
-							/>
-							<label
-								htmlFor="transaction-file-input"
-								className={cn(
-									"relative flex cursor-pointer flex-col rounded-xl border border-dashed p-6 transition",
-									"bg-muted/40 hover:bg-muted/60",
-									isDragging && "border-primary bg-primary/5",
-									!!error && "border-destructive/60",
-								)}
-								onDragOver={(event) => {
-									event.preventDefault();
-									setIsDragging(true);
-								}}
-								onDragLeave={() => setIsDragging(false)}
-								onDrop={handleDrop}
-							>
-								<div className="flex flex-col items-center gap-3 text-center">
-									<div className="flex h-12 w-12 items-center justify-center rounded-full bg-background shadow-sm">
-										<UploadCloud className="h-6 w-6 text-primary" />
-									</div>
-									<div className="space-y-1">
-										<p className="text-sm font-medium">Drag and drop a PDF statement</p>
-										<p className="text-xs text-muted-foreground">
-											or click to select a file from your computer
-										</p>
-									</div>
-									<span className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-secondary-foreground shadow-sm">
-										Choose file
-									</span>
-								</div>
-							</label>
-
-							{file && (
-								<div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
-									<div className="flex items-center gap-3">
-										<FileText className="h-5 w-5 text-muted-foreground" />
-										<div>
-											<p className="text-sm font-medium">{file.name}</p>
-											{fileSizeLabel && (
-												<p className="text-xs text-muted-foreground">{fileSizeLabel}</p>
-											)}
-										</div>
-									</div>
-									<Button type="button" variant="ghost" onClick={() => setFile(null)}>
-										Remove
-									</Button>
-								</div>
-							)}
-
-							{error && <p className="text-sm text-destructive">{error}</p>}
-
-							<DialogFooter>
-								<Button type="submit" disabled={!file || isExtracting}>
-									{isExtracting ? "Extracting..." : "Process file"}
-								</Button>
-								<Button
-									type="button"
-									variant="secondary"
-									onClick={() => onOpenChange(false)}
-								>
-									Cancel
-								</Button>
-							</DialogFooter>
-						</>
+						<AddTransactionsFromFileStepOne
+							file={file}
+							fileSizeLabel={fileSizeLabel}
+							isDragging={isDragging}
+							isExtracting={isExtracting}
+							error={error}
+							onFileChange={handleFile}
+							onDrop={handleDrop}
+							onDragOver={(event) => {
+								event.preventDefault();
+								setIsDragging(true);
+							}}
+							onDragLeave={() => setIsDragging(false)}
+							onRemoveFile={() => setFile(null)}
+							onCancel={() => onOpenChange(false)}
+						/>
 					) : step === 2 ? (
-						<>
-							<div className="space-y-3">
-								<Alert className="mb-6 border-red-200 bg-red-50 text-red-900">
-									<AlertTriangle className="stroke-red-900 w-5 h-5" />
-									<AlertTitle className="text-base font-semibold">
-										Privacy notice
-									</AlertTitle>
-									<AlertDescription>
-										The text below will be sent to an external LLM for analysis. Review it
-										carefully and remove any personal or sensitive information before
-										continuing.
-									</AlertDescription>
-								</Alert>
-								{error && <p className="text-sm text-destructive">{error}</p>}
-								<Textarea
-									value={extractedText}
-									onChange={(event) => setExtractedText(event.target.value)}
-									className="min-h-[220px] resize-y"
-									placeholder="Extracted text will appear here."
-								/>
-								<div className="space-y-2">
-									<p className="text-sm font-medium">Statement month</p>
-									<Popover>
-										<PopoverTrigger asChild>
-											<Button
-												variant="outline"
-												className={cn(
-													"w-full justify-start text-left font-normal",
-													!referenceMonth && "text-muted-foreground",
-												)}
-											>
-												<Calendar className="mr-2 h-4 w-4" />
-												{referenceMonth ? (
-													format(referenceMonth, "MMM yyyy")
-												) : (
-													<span>Select month</span>
-												)}
-											</Button>
-										</PopoverTrigger>
-										<PopoverContent className="w-auto p-0" align="start">
-											<MonthPicker
-												selectedMonth={referenceMonth}
-												onMonthSelect={(date) => setReferenceMonth(date)}
-											/>
-										</PopoverContent>
-									</Popover>
-									<p className="text-xs text-muted-foreground">
-										We use this month as the statement reference date
-									</p>
-								</div>
-							</div>
-
-							<DialogFooter>
-								<Button type="button" variant="secondary" onClick={() => setStep(1)}>
-									Back
-								</Button>
-								<Button
-									type="button"
-									onClick={handleAnalyze}
-									disabled={!extractedText.trim() || isAnalyzing}
-								>
-									{isAnalyzing ? "Analyzing..." : "Analyze"}
-								</Button>
-							</DialogFooter>
-						</>
+						<AddTransactionsFromFileStepTwo
+							extractedText={extractedText}
+							referenceMonth={referenceMonth}
+							error={error}
+							onTextChange={setExtractedText}
+							onMonthSelect={setReferenceMonth}
+							onBack={() => setStep(1)}
+							onAnalyze={handleAnalyze}
+							isAnalyzing={isAnalyzing}
+						/>
 					) : (
-						<>
-							<div className="space-y-2">
-								<p className="text-sm font-medium">Parsed transactions</p>
-								<pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border bg-background p-3 text-xs text-muted-foreground">
-									{analysisResult}
-								</pre>
-							</div>
-
-							<DialogFooter>
-								<Button type="button" variant="secondary" onClick={() => setStep(2)}>
-									Back
-								</Button>
-								<Button type="button" onClick={() => onOpenChange(false)}>
-									Close
-								</Button>
-							</DialogFooter>
-						</>
+						<AddTransactionsFromFileStepThree
+							drafts={drafts}
+							payeeMap={payeeMap}
+							categoryMap={categoryMap}
+							editingCell={editingCell}
+							selectedIds={selectedDraftIds}
+							onToggleRow={toggleDraftSelection}
+							onToggleAll={toggleAllDrafts}
+							bulkPayeeId={bulkPayeeId}
+							bulkCategoryId={bulkCategoryId}
+							onBulkPayeeChange={applyBulkPayee}
+							onBulkCategoryChange={applyBulkCategory}
+							canAddTransactions={allReady}
+							addTooltipMessage={addTooltipMessage}
+							addError={addError}
+							onAddTransactions={handleAddTransactions}
+							isAddingTransactions={isCreatingBatch}
+							onEditCell={setEditingCell}
+							onUpdateDraft={updateDraft}
+							formatCurrency={formatCurrency}
+							onBack={() => setStep(2)}
+						/>
 					)}
 				</form>
 			</DialogContent>

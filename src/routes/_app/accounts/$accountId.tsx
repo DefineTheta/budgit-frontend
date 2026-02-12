@@ -46,6 +46,7 @@ function RouteComponent() {
 			<AddTransactionsFromFileModal
 				open={isAddingFromFile}
 				onOpenChange={setIsAddingFromFile}
+				accountId={accountId}
 			/>
 			<AccountTransactionTable
 				accountId={accountId}
