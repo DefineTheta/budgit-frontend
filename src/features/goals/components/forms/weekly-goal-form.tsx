@@ -17,73 +17,52 @@ const GoalFormSchema = CreateGoalSchema.extend({
 	amount: z.number().gte(0),
 });
 
-interface MonthlyGoalFormProps {
+interface WeeklyGoalFormProps {
 	goal?: CreateGoalInput;
 	goalId?: string;
 	categoryId: string;
 	onSuccess: () => void;
 }
 
-const day = [
-	{ label: "1st", value: "1" },
-	{ label: "2nd", value: "2" },
-	{ label: "3rd", value: "3" },
-	{ label: "4th", value: "4" },
-	{ label: "5th", value: "5" },
-	{ label: "6th", value: "6" },
-	{ label: "7th", value: "7" },
-	{ label: "8th", value: "8" },
-	{ label: "9th", value: "9" },
-	{ label: "10th", value: "10" },
-	{ label: "11th", value: "11" },
-	{ label: "12th", value: "12" },
-	{ label: "13th", value: "13" },
-	{ label: "14th", value: "14" },
-	{ label: "15th", value: "15" },
-	{ label: "16th", value: "16" },
-	{ label: "17th", value: "17" },
-	{ label: "18th", value: "18" },
-	{ label: "19th", value: "19" },
-	{ label: "20th", value: "20" },
-	{ label: "21st", value: "21" },
-	{ label: "22nd", value: "22" },
-	{ label: "23rd", value: "23" },
-	{ label: "24th", value: "24" },
-	{ label: "25th", value: "25" },
-	{ label: "26th", value: "26" },
-	{ label: "27th", value: "27" },
-	{ label: "28th", value: "28" },
-	{ label: "29th", value: "29" },
-	{ label: "30th", value: "30" },
-	{ label: "31st", value: "31" },
-	{ label: "Last day of month", value: "32" },
+const weekDays = [
+	{ label: "Monday", value: "1" },
+	{ label: "Tuesday", value: "2" },
+	{ label: "Wednesday", value: "3" },
+	{ label: "Thursday", value: "4" },
+	{ label: "Friday", value: "5" },
+	{ label: "Saturday", value: "6" },
+	{ label: "Sunday", value: "7" },
 ];
 
-export const MonthlyGoalForm = ({
+export const WeeklyGoalForm = ({
 	goal,
 	goalId,
 	categoryId,
 	onSuccess,
-}: MonthlyGoalFormProps) => {
+}: WeeklyGoalFormProps) => {
 	const { mutate: createGoalMutation } = useCreateGoal();
 	const { mutate: updateGoalMutation } = useUpdateGoal();
 	const [amountInput, setAmountInput] = useState(goal ? String(goal.amount / 100) : "");
 
 	const form = useForm({
-		defaultValues: goal ? { ...goal, amount: goal.amount / 100 } : undefined,
+		defaultValues: goal
+			? { ...goal, amount: goal.amount / 100 }
+			: ({
+					goal_type_id: 1,
+					amount: 0,
+					repeat_day_week: 1,
+				} as CreateGoalInput),
 		validators: {
 			onSubmit: GoalFormSchema,
 		},
 		onSubmit: (e) => {
 			const data = {
 				...e.value,
-				repeat_day_week: undefined,
+				repeat_day_month: undefined,
 				repeat_date_year: undefined,
 				amount: Math.round(e.value.amount * 100),
 			};
-			const options = {
-				onSuccess,
-			};
+			const options = { onSuccess };
 
 			if (goal && goalId) {
 				updateGoalMutation(
@@ -107,7 +86,7 @@ export const MonthlyGoalForm = ({
 
 	return (
 		<form
-			id="monthly-goal-form"
+			id="weekly-goal-form"
 			onSubmit={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
@@ -118,11 +97,14 @@ export const MonthlyGoalForm = ({
 			<form.Field name="amount">
 				{(field) => {
 					const error = field.state.meta.errors[0];
-					const errorMessage = typeof error === "string" ? error : error?.message;
+					const errorMessage =
+						typeof error === "string"
+							? error
+							: (error as { message?: string } | undefined)?.message;
 					return (
 						<div>
 							<label htmlFor={field.name} className="text-sm font-medium">
-								I want to save
+								I need
 							</label>
 							<Input
 								id={field.name}
@@ -155,30 +137,33 @@ export const MonthlyGoalForm = ({
 					);
 				}}
 			</form.Field>
-			<form.Field name="repeat_day_month">
+			<form.Field name="repeat_day_week">
 				{(field) => {
 					const error = field.state.meta.errors[0];
-					const errorMessage = typeof error === "string" ? error : error?.message;
+					const errorMessage =
+						typeof error === "string"
+							? error
+							: (error as { message?: string } | undefined)?.message;
 					return (
 						<div>
 							<label
-								htmlFor="monthly-goal-form-select-day"
+								htmlFor="weekly-goal-form-select-day"
 								className="text-sm font-medium"
 							>
-								By
+								On
 							</label>
 							<Select
 								name={field.name}
 								value={String(field.state.value)}
 								onValueChange={(val) => field.handleChange(Number(val))}
 							>
-								<SelectTrigger id="monthly-goal-form-select-day">
+								<SelectTrigger id="weekly-goal-form-select-day">
 									<SelectValue placeholder="Select" />
 								</SelectTrigger>
 								<SelectContent>
-									{day.map((d) => (
-										<SelectItem key={d.value} value={d.value}>
-											{d.label}
+									{weekDays.map((day) => (
+										<SelectItem key={day.value} value={day.value}>
+											{day.label}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -193,21 +178,24 @@ export const MonthlyGoalForm = ({
 			<form.Field name="goal_type_id">
 				{(field) => {
 					const error = field.state.meta.errors[0];
-					const errorMessage = typeof error === "string" ? error : error?.message;
+					const errorMessage =
+						typeof error === "string"
+							? error
+							: (error as { message?: string } | undefined)?.message;
 					return (
 						<div>
 							<label
-								htmlFor="monthly-goal-form-select-goal-type"
+								htmlFor="weekly-goal-form-select-goal-type"
 								className="text-sm font-medium"
 							>
-								Next month I want to
+								Goal type
 							</label>
 							<Select
 								name={field.name}
 								value={String(field.state.value)}
 								onValueChange={(val) => field.handleChange(Number(val))}
 							>
-								<SelectTrigger id="monthly-goal-form-select-goal-type">
+								<SelectTrigger id="weekly-goal-form-select-goal-type">
 									<SelectValue placeholder="Select" />
 								</SelectTrigger>
 								<SelectContent>
@@ -217,13 +205,15 @@ export const MonthlyGoalForm = ({
 											style: "currency",
 											currency: "AUD",
 										}).format(form.getFieldValue("amount") ?? 0)}
+										/week
 									</SelectItem>
 									<SelectItem key={2} value="2">
-										Refil upto{" "}
+										Refull upto{" "}
 										{Intl.NumberFormat("en-AU", {
 											style: "currency",
 											currency: "AUD",
 										}).format(form.getFieldValue("amount") ?? 0)}
+										/week
 									</SelectItem>
 								</SelectContent>
 							</Select>

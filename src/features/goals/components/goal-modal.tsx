@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -10,6 +11,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGoal } from "../api/get-goal";
 import { MonthlyGoalForm } from "./forms/monthly-goal-form";
+import { WeeklyGoalForm } from "./forms/weekly-goal-form";
 
 interface GoalModalProps {
 	goalId?: string;
@@ -28,6 +30,7 @@ export function GoalModal({
 	edit,
 	onOpenChange,
 }: GoalModalProps) {
+	const [activeTab, setActiveTab] = useState("month");
 	const goalQuery = useGoal({
 		id: goalId ?? "",
 		queryConfig: {
@@ -36,6 +39,23 @@ export function GoalModal({
 	});
 
 	const goal = goalQuery.data;
+	const activeFormId = activeTab === "week" ? "weekly-goal-form" : "monthly-goal-form";
+	const disableSave = activeTab === "year";
+
+	useEffect(() => {
+		if (!open) {
+			setActiveTab("month");
+			return;
+		}
+
+		if (goal?.repeat_day_week) {
+			setActiveTab("week");
+			return;
+		}
+
+		setActiveTab("month");
+	}, [goal?.repeat_day_week, open]);
+
 	if (!goal && edit) return null;
 
 	return (
@@ -62,12 +82,28 @@ export function GoalModal({
 					</DialogDescription>
 				</DialogHeader>
 
-				<Tabs defaultValue="month" className="w-full">
+				<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 					<TabsList className="my-2 w-full">
 						<TabsTrigger value="week">Weekly</TabsTrigger>
 						<TabsTrigger value="month">Monthly</TabsTrigger>
 						<TabsTrigger value="year">Yearly</TabsTrigger>
 					</TabsList>
+
+					<TabsContent value="week">
+						<WeeklyGoalForm
+							goal={
+								goal
+									? {
+											...goal,
+											goal_type_id: goal.goal_type,
+										}
+									: undefined
+							}
+							goalId={goalId}
+							categoryId={categoryId}
+							onSuccess={() => onOpenChange(false)}
+						/>
+					</TabsContent>
 
 					<TabsContent value="month">
 						<MonthlyGoalForm
@@ -87,7 +123,7 @@ export function GoalModal({
 				</Tabs>
 
 				<DialogFooter className="mt-4">
-					<Button type="submit" form="monthly-goal-form">
+					<Button type="submit" form={activeFormId} disabled={disableSave}>
 						Save goal
 					</Button>
 					<Button variant="secondary" onClick={() => onOpenChange(false)}>

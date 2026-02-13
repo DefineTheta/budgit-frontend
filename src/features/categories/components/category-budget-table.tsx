@@ -6,19 +6,15 @@ import { EditableAllocatedCell } from "./editable-allocated-cell";
 import React from "react";
 import { Goal } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Progress } from "@/components/ui/progress";
-import { endOfMonth, format, set } from "date-fns";
+import { getMonth, getYear } from "date-fns";
+import { calculateMonthlyGoalProgress } from "@/features/categories/helper/goal";
+import { SegmentedProgress } from "@/components/ui/segmented-progress";
 
 interface CategoryBudgetTableProps {
-	startDate?: Date;
-	endDate?: Date;
+	startDate: Date;
+	endDate: Date;
 	handleGoalClick: (category: Category) => void;
 }
-
-const currency = new Intl.NumberFormat("en-AU", {
-	style: "currency",
-	currency: "AUD",
-});
 
 export const CategoryBudgetTable = ({
 	startDate,
@@ -31,39 +27,33 @@ export const CategoryBudgetTable = ({
 				id: "category",
 				header: "Category",
 				cell: ({ row }) => {
-					const goalAmount = row.original.goal?.amount;
-					const allocatedAmount = row.original.allocations?.at(0)?.amount;
-					const remainingAmount = ((goalAmount ?? 0) - (allocatedAmount ?? 0)) / 100;
-					const monthDay = row.original.goal?.repeat_day_month;
-					const goalDate =
-						monthDay && monthDay !== 32
-							? set(endOfMonth(new Date()), {
-									date: monthDay,
-								})
-							: endOfMonth(new Date());
+					const goalProgress = calculateMonthlyGoalProgress(
+						getYear(startDate),
+						getMonth(startDate),
+						row.original.goal,
+						row.original.allocations?.at(0),
+					);
 
 					let color = undefined;
-					let progress = 0;
 
-					if (allocatedAmount && goalAmount) {
-						if (allocatedAmount < goalAmount) {
-							color = "text-yellow-500";
-						} else if (allocatedAmount >= goalAmount) {
-							color = "text-green-500";
-						}
-
-						progress = (allocatedAmount / goalAmount) * 100;
+					if (goalProgress.status === "UNDERFUNDED") {
+						color = "text-yellow-500";
+					} else if (goalProgress.status === "FUNDED") {
+						color = "text-green-500";
 					}
 
 					return (
 						<div className="my-1 flex flex-col">
 							<div className="flex justify-between items-center">
 								<span className="mb-1">{row.original.name}</span>
-								{goalAmount && (
-									<span className="text-muted-foreground">{`${currency.format(remainingAmount)} needed by ${format(goalDate, "do")}`}</span>
-								)}
+								<span className="text-muted-foreground">{goalProgress.text}</span>
 							</div>
-							<Progress className={color} value={progress} />
+							<SegmentedProgress
+								value={goalProgress.progress}
+								segments={goalProgress.segments}
+								className={color}
+								gap={4}
+							/>
 						</div>
 					);
 				},
