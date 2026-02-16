@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -30,6 +30,9 @@ export function CategorySelect({
 }: CategorySelectProps) {
 	const [open, setOpen] = useState(false);
 	const [inputValue, setInputValue] = useState("");
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const portalContainer =
+		triggerRef.current?.closest("[data-slot='dialog-content']") ?? undefined;
 
 	useEffect(() => {
 		if (!value) {
@@ -62,6 +65,7 @@ export function CategorySelect({
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<Button
+					ref={triggerRef}
 					variant="outline"
 					role="combobox"
 					aria-expanded={open}
@@ -71,7 +75,7 @@ export function CategorySelect({
 					<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="w-[220px] p-0">
+			<PopoverContent container={portalContainer} className="w-[220px] p-0">
 				<Command>
 					<CommandInput
 						placeholder="Search categories..."

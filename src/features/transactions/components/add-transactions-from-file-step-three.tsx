@@ -1,4 +1,11 @@
 import { AlertTriangle, Check } from "lucide-react";
+import {
+	type ColumnDef,
+	flexRender,
+	getCoreRowModel,
+	useReactTable,
+} from "@tanstack/react-table";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -74,8 +81,221 @@ export const AddTransactionsFromFileStepThree = ({
 	const totalAmount = drafts.reduce((sum, draft) => sum + draft.amount, 0);
 	const selectedDrafts = drafts.filter((draft) => selectedIds.includes(draft.id));
 	const selectedTotal = selectedDrafts.reduce((sum, draft) => sum + draft.amount, 0);
-	const allSelected = drafts.length > 0 && selectedIds.length === drafts.length;
-	const someSelected = selectedIds.length > 0 && !allSelected;
+	const hasSelection = selectedIds.length > 0;
+	const [payeeSearch, setPayeeSearch] = useState("");
+
+	const filteredDrafts = useMemo(() => {
+		const query = payeeSearch.trim().toLowerCase();
+		if (!query) return drafts;
+
+		return drafts.filter((draft) => {
+			const payeeLabel = draft.payeeId ? payeeMap.get(draft.payeeId) : "";
+			const searchablePayee = (payeeLabel || draft.payeeName || "").toLowerCase();
+			return searchablePayee.includes(query);
+		});
+	}, [drafts, payeeMap, payeeSearch]);
+
+	const handleToggleAllVisible = useCallback(() => {
+		if (hasSelection) {
+			onToggleAll(false);
+			return;
+		}
+
+		filteredDrafts.forEach((draft) => {
+			onToggleRow(draft.id, true);
+		});
+	}, [filteredDrafts, hasSelection, onToggleAll, onToggleRow]);
+
+	const columns = useMemo<ColumnDef<EditableDraft>[]>(
+		() => [
+			{
+				id: "select",
+				header: () => (
+					<Checkbox
+						checked={hasSelection ? "indeterminate" : false}
+						onCheckedChange={handleToggleAllVisible}
+						aria-label="Select all transactions"
+					/>
+				),
+				cell: ({ row }) => {
+					const draft = row.original;
+					const isMissingSelection = !draft.payeeId || !draft.categoryId;
+					const isComplete = !!draft.payeeId && !!draft.categoryId;
+
+					return (
+						<div className="flex items-center gap-2">
+							<Checkbox
+								checked={selectedIds.includes(draft.id)}
+								onCheckedChange={(checked) => onToggleRow(draft.id, checked === true)}
+								aria-label={`Select ${draft.payeeName || "transaction"}`}
+							/>
+							{isMissingSelection ? (
+								<AlertTriangle className="h-4 w-4 text-amber-500" />
+							) : isComplete ? (
+								<Check className="h-4 w-4 text-emerald-700" />
+							) : null}
+						</div>
+					);
+				},
+				size: 40,
+			},
+			{
+				accessorKey: "date",
+				header: "Date",
+				cell: ({ row }) => {
+					const draft = row.original;
+
+					if (editingCell?.id === draft.id && editingCell.field === "date") {
+						return (
+							<Input
+								autoFocus
+								type="date"
+								value={draft.date}
+								onChange={(event) =>
+									onUpdateDraft(draft.id, { date: event.target.value })
+								}
+								onBlur={() => onEditCell(null)}
+								className="h-9"
+							/>
+						);
+					}
+
+					return (
+						<button
+							type="button"
+							className="h-9 w-full rounded-md border border-transparent px-2 text-left text-sm hover:border-border hover:bg-muted/40"
+							onClick={() => onEditCell({ id: draft.id, field: "date" })}
+						>
+							{draft.date || "Select date"}
+						</button>
+					);
+				},
+				size: 140,
+			},
+			{
+				accessorKey: "payeeId",
+				header: "Payee",
+				cell: ({ row }) => {
+					const draft = row.original;
+					const payeeLabel = draft.payeeId ? payeeMap.get(draft.payeeId) : "";
+
+					if (editingCell?.id === draft.id && editingCell.field === "payee") {
+						return (
+							<PayeeSelect
+								value={draft.payeeId}
+								onChange={(value) => {
+									onUpdateDraft(draft.id, { payeeId: value });
+									onEditCell(null);
+								}}
+								placeholder={draft.payeeName || "Payee"}
+								className="h-9"
+							/>
+						);
+					}
+
+					return (
+						<button
+							type="button"
+							className="h-9 w-full rounded-md border border-transparent px-2 text-left text-sm hover:border-border hover:bg-muted/40"
+							onClick={() => onEditCell({ id: draft.id, field: "payee" })}
+						>
+							{payeeLabel || draft.payeeName || "Select payee"}
+						</button>
+					);
+				},
+				size: 220,
+			},
+			{
+				accessorKey: "categoryId",
+				header: "Category",
+				cell: ({ row }) => {
+					const draft = row.original;
+					const categoryLabel = draft.categoryId ? categoryMap.get(draft.categoryId) : "";
+
+					if (editingCell?.id === draft.id && editingCell.field === "category") {
+						return (
+							<CategorySelect
+								value={draft.categoryId}
+								onChange={(value) => {
+									onUpdateDraft(draft.id, { categoryId: value });
+									onEditCell(null);
+								}}
+								placeholder={draft.categoryName || "Category"}
+								className="h-9"
+							/>
+						);
+					}
+
+					return (
+						<button
+							type="button"
+							className="h-9 w-full rounded-md border border-transparent px-2 text-left text-sm hover:border-border hover:bg-muted/40"
+							onClick={() => onEditCell({ id: draft.id, field: "category" })}
+						>
+							{categoryLabel || draft.categoryName || "Select category"}
+						</button>
+					);
+				},
+				size: 220,
+			},
+			{
+				accessorKey: "amount",
+				header: () => <div className="text-right">Outflow</div>,
+				cell: ({ row }) => {
+					const draft = row.original;
+
+					if (editingCell?.id === draft.id && editingCell.field === "amount") {
+						return (
+							<Input
+								autoFocus
+								type="number"
+								min="0"
+								step="0.01"
+								value={draft.amount}
+								onChange={(event) =>
+									onUpdateDraft(draft.id, {
+										amount: Number(event.target.value),
+									})
+								}
+								onBlur={() => onEditCell(null)}
+								className="h-9 text-right"
+								placeholder="0.00"
+							/>
+						);
+					}
+
+					return (
+						<button
+							type="button"
+							className="h-9 w-full rounded-md border border-transparent px-2 text-right text-sm hover:border-border hover:bg-muted/40"
+							onClick={() => onEditCell({ id: draft.id, field: "amount" })}
+						>
+							{formatCurrency(draft.amount)}
+						</button>
+					);
+				},
+				size: 220,
+			},
+		],
+		[
+			categoryMap,
+			editingCell,
+			formatCurrency,
+			handleToggleAllVisible,
+			hasSelection,
+			onEditCell,
+			onToggleRow,
+			onUpdateDraft,
+			payeeMap,
+			selectedIds,
+		],
+	);
+
+	const table = useReactTable({
+		data: filteredDrafts,
+		columns,
+		getCoreRowModel: getCoreRowModel(),
+	});
 
 	return (
 		<>
@@ -101,160 +321,86 @@ export const AddTransactionsFromFileStepThree = ({
 						No transactions found in the analysis.
 					</p>
 				) : (
-					<div className="max-h-[420px] overflow-y-auto rounded-xl border bg-background">
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead className="w-8">
-										<Checkbox
-											checked={
-												allSelected ? true : someSelected ? "indeterminate" : false
-											}
-											onCheckedChange={(checked) => onToggleAll(checked === true)}
-											aria-label="Select all transactions"
-										/>
-									</TableHead>
-									<TableHead className="w-[140px]">Date</TableHead>
-									<TableHead className="min-w-[220px]">Payee</TableHead>
-									<TableHead className="min-w-[220px]">Category</TableHead>
-									<TableHead className="w-[220px] text-right">Outflow</TableHead>
-								</TableRow>
+					<>
+						<Input
+							type="search"
+							value={payeeSearch}
+							onChange={(event) => setPayeeSearch(event.target.value)}
+							placeholder="Search by payee"
+							className="mb-3 h-9"
+						/>
+						<div className="rounded-xl border bg-background">
+							<Table containerClassName="max-h-[420px] overflow-y-auto">
+							<TableHeader className="sticky top-0 z-10 bg-background">
+								{table.getHeaderGroups().map((headerGroup) => (
+									<TableRow key={headerGroup.id}>
+										{headerGroup.headers.map((header) => (
+											<TableHead
+												key={header.id}
+												className={cn(
+													"sticky top-0 z-10 bg-background",
+													header.column.id === "select" && "w-8",
+													header.column.id === "date" && "w-[140px]",
+													header.column.id === "payeeId" && "min-w-[220px]",
+													header.column.id === "categoryId" && "min-w-[220px]",
+													header.column.id === "amount" && "w-[220px]",
+												)}
+											>
+												{header.isPlaceholder
+													? null
+													: flexRender(
+															header.column.columnDef.header,
+															header.getContext(),
+														)}
+											</TableHead>
+										))}
+									</TableRow>
+								))}
 							</TableHeader>
 							<TableBody>
-								{drafts.map((draft) => {
+								{table.getRowModel().rows.length > 0 ? (
+									table.getRowModel().rows.map((row) => {
+									const draft = row.original;
 									const isMissingSelection = !draft.payeeId || !draft.categoryId;
 									const isComplete = !!draft.payeeId && !!draft.categoryId;
-									const payeeLabel = draft.payeeId ? payeeMap.get(draft.payeeId) : "";
-									const categoryLabel = draft.categoryId
-										? categoryMap.get(draft.categoryId)
-										: "";
 
 									return (
 										<TableRow
-											key={draft.id}
+											key={row.id}
 											className={cn(
 												"border-b py-2",
 												isMissingSelection && "bg-amber-50/60",
 												isComplete && "bg-emerald-50/70",
 											)}
 										>
-											<TableCell className="w-8">
-												<div className="flex items-center gap-2">
-													<Checkbox
-														checked={selectedIds.includes(draft.id)}
-														onCheckedChange={(checked) =>
-															onToggleRow(draft.id, checked === true)
-														}
-														aria-label={`Select ${draft.payeeName || "transaction"}`}
-													/>
-													{isMissingSelection ? (
-														<AlertTriangle className="h-4 w-4 text-amber-500" />
-													) : isComplete ? (
-														<Check className="h-4 w-4 text-emerald-700" />
-													) : null}
-												</div>
-											</TableCell>
-											<TableCell className="w-[140px]">
-												{editingCell?.id === draft.id && editingCell.field === "date" ? (
-													<Input
-														autoFocus
-														type="date"
-														value={draft.date}
-														onChange={(event) =>
-															onUpdateDraft(draft.id, { date: event.target.value })
-														}
-														onBlur={() => onEditCell(null)}
-														className="h-9"
-													/>
-												) : (
-													<button
-														type="button"
-														className="h-9 w-full rounded-md border border-transparent px-2 text-left text-sm hover:border-border hover:bg-muted/40"
-														onClick={() => onEditCell({ id: draft.id, field: "date" })}
-													>
-														{draft.date || "Select date"}
-													</button>
-												)}
-											</TableCell>
-											<TableCell className="min-w-[220px]">
-												{editingCell?.id === draft.id && editingCell.field === "payee" ? (
-													<PayeeSelect
-														value={draft.payeeId}
-														onChange={(value) => {
-															onUpdateDraft(draft.id, { payeeId: value });
-															onEditCell(null);
-														}}
-														placeholder={draft.payeeName || "Payee"}
-														className="h-9"
-													/>
-												) : (
-													<button
-														type="button"
-														className="h-9 w-full rounded-md border border-transparent px-2 text-left text-sm hover:border-border hover:bg-muted/40"
-														onClick={() => onEditCell({ id: draft.id, field: "payee" })}
-													>
-														{payeeLabel || draft.payeeName || "Select payee"}
-													</button>
-												)}
-											</TableCell>
-											<TableCell className="min-w-[220px]">
-												{editingCell?.id === draft.id &&
-												editingCell.field === "category" ? (
-													<CategorySelect
-														value={draft.categoryId}
-														onChange={(value) => {
-															onUpdateDraft(draft.id, { categoryId: value });
-															onEditCell(null);
-														}}
-														placeholder={draft.categoryName || "Category"}
-														className="h-9"
-													/>
-												) : (
-													<button
-														type="button"
-														className="h-9 w-full rounded-md border border-transparent px-2 text-left text-sm hover:border-border hover:bg-muted/40"
-														onClick={() =>
-															onEditCell({ id: draft.id, field: "category" })
-														}
-													>
-														{categoryLabel || draft.categoryName || "Select category"}
-													</button>
-												)}
-											</TableCell>
-											<TableCell className="w-[220px]">
-												{editingCell?.id === draft.id &&
-												editingCell.field === "amount" ? (
-													<Input
-														autoFocus
-														type="number"
-														min="0"
-														step="0.01"
-														value={draft.amount}
-														onChange={(event) =>
-															onUpdateDraft(draft.id, {
-																amount: Number(event.target.value),
-															})
-														}
-														onBlur={() => onEditCell(null)}
-														className="h-9 text-right"
-														placeholder="0.00"
-													/>
-												) : (
-													<button
-														type="button"
-														className="h-9 w-full rounded-md border border-transparent px-2 text-right text-sm hover:border-border hover:bg-muted/40"
-														onClick={() => onEditCell({ id: draft.id, field: "amount" })}
-													>
-														{formatCurrency(draft.amount)}
-													</button>
-												)}
-											</TableCell>
+											{row.getVisibleCells().map((cell) => (
+												<TableCell
+													key={cell.id}
+													className={cn(
+														cell.column.id === "select" && "w-8",
+														cell.column.id === "date" && "w-[140px]",
+														cell.column.id === "payeeId" && "min-w-[220px]",
+														cell.column.id === "categoryId" && "min-w-[220px]",
+														cell.column.id === "amount" && "w-[220px]",
+													)}
+												>
+													{flexRender(cell.column.columnDef.cell, cell.getContext())}
+												</TableCell>
+											))}
 										</TableRow>
 									);
-								})}
+									})
+								) : (
+									<TableRow>
+										<TableCell colSpan={columns.length} className="h-14 text-center">
+											No transactions match that payee.
+										</TableCell>
+									</TableRow>
+								)}
 							</TableBody>
-						</Table>
-					</div>
+							</Table>
+						</div>
+					</>
 				)}
 			</div>
 
