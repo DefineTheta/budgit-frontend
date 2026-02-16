@@ -1,14 +1,15 @@
-import { useCategories } from "@/features/categories/api/get-categories";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Category } from "@/features/categories/config/schemas";
-import { DataTable } from "@/components/ui/data-table";
-import { EditableAllocatedCell } from "./editable-allocated-cell";
-import React from "react";
-import { Goal } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getMonth, getYear } from "date-fns";
-import { calculateMonthlyGoalProgress } from "@/features/categories/helper/goal";
+import { Goal } from "lucide-react";
+import React from "react";
+import { DataTable } from "@/components/ui/data-table";
 import { SegmentedProgress } from "@/components/ui/segmented-progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useCategories } from "@/features/categories/api/get-categories";
+import type { Category } from "@/features/categories/config/schemas";
+import { calculateMonthlyGoalProgress } from "@/features/categories/helper/goal";
+import { CategoryActivityHoverCard } from "./category-activity-hover-card";
+import { EditableAllocatedCell } from "./editable-allocated-cell";
 
 interface CategoryBudgetTableProps {
 	startDate: Date;
@@ -35,7 +36,7 @@ export const CategoryBudgetTable = ({
 						row.original.allocations?.at(0),
 					);
 
-					let color = undefined;
+					let color: string | undefined;
 
 					if (goalProgress.status === "UNDERFUNDED") {
 						color = "text-yellow-500";
@@ -77,12 +78,14 @@ export const CategoryBudgetTable = ({
 				size: 144,
 				cell: ({ row }) => {
 					const amount = (row.original.stats?.total ?? 0) / 100;
-					const formattedAmount = new Intl.NumberFormat("en-AU", {
-						style: "currency",
-						currency: "AUD",
-					}).format(amount);
 
-					return <div className="text-right">{formattedAmount}</div>;
+					return (
+						<CategoryActivityHoverCard
+							categoryId={row.original.id}
+							categoryName={row.original.name}
+							activityAmount={amount}
+						/>
+					);
 				},
 			},
 			{
@@ -118,13 +121,11 @@ export const CategoryBudgetTable = ({
 	if (!categories) return;
 
 	return (
-		<>
-			<DataTable
-				columns={columns}
-				data={categories}
-				onEdit={handleGoalClick}
-				disableHover
-			/>
-		</>
+		<DataTable
+			columns={columns}
+			data={categories}
+			onEdit={handleGoalClick}
+			disableHover
+		/>
 	);
 };

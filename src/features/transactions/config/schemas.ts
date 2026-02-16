@@ -3,6 +3,7 @@ import z from "zod";
 export const TransactionSchema = z.object({
 	id: z.string(),
 	account_id: z.string(),
+	account: z.string(),
 	category_id: z.string(),
 	payee_id: z.string(),
 	transaction_group_id: z.string().nullable(),
