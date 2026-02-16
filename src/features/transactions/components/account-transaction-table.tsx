@@ -29,10 +29,7 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 
 			return (
 				<Checkbox
-					checked={
-						table.getIsAllPageRowsSelected() ||
-						(table.getIsSomePageRowsSelected() && "indeterminate")
-					}
+					checked={hasSelection ? "indeterminate" : false}
 					onCheckedChange={() => {
 						if (hasSelection) {
 							table.resetRowSelection();

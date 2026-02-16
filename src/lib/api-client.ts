@@ -17,6 +17,10 @@ interface ApiClient
 
 const axiosInstance = axios.create({
 	baseURL: import.meta.env.VITE_API_URL,
+	withCredentials: true,
+	headers: {
+		"Content-Type": "application/json",
+	},
 });
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -35,6 +39,11 @@ axiosInstance.interceptors.response.use(
 	},
 	(error) => {
 		console.error("API Error:", error);
+
+		if (error.response?.status === 401) {
+			console.warn("Session expired or invalid");
+		}
+
 		return Promise.reject(error);
 	},
 );

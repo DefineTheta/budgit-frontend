@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as PublicSignupRouteImport } from './routes/_public/signup'
+import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as AppBudgetRouteImport } from './routes/_app/budget'
 import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts/$accountId'
 
@@ -22,6 +24,16 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const PublicSignupRoute = PublicSignupRouteImport.update({
+  id: '/_public/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/_public/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppBudgetRoute = AppBudgetRouteImport.update({
   id: '/budget',
@@ -36,11 +48,15 @@ const AppAccountsAccountIdRoute = AppAccountsAccountIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/budget': typeof AppBudgetRoute
+  '/login': typeof PublicLoginRoute
+  '/signup': typeof PublicSignupRoute
   '/': typeof AppIndexRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
 }
 export interface FileRoutesByTo {
   '/budget': typeof AppBudgetRoute
+  '/login': typeof PublicLoginRoute
+  '/signup': typeof PublicSignupRoute
   '/': typeof AppIndexRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
 }
@@ -48,24 +64,30 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/budget': typeof AppBudgetRoute
+  '/_public/login': typeof PublicLoginRoute
+  '/_public/signup': typeof PublicSignupRoute
   '/_app/': typeof AppIndexRoute
   '/_app/accounts/$accountId': typeof AppAccountsAccountIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/budget' | '/' | '/accounts/$accountId'
+  fullPaths: '/budget' | '/login' | '/signup' | '/' | '/accounts/$accountId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/budget' | '/' | '/accounts/$accountId'
+  to: '/budget' | '/login' | '/signup' | '/' | '/accounts/$accountId'
   id:
     | '__root__'
     | '/_app'
     | '/_app/budget'
+    | '/_public/login'
+    | '/_public/signup'
     | '/_app/'
     | '/_app/accounts/$accountId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  PublicLoginRoute: typeof PublicLoginRoute
+  PublicSignupRoute: typeof PublicSignupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -83,6 +105,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_public/signup': {
+      id: '/_public/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof PublicSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/budget': {
       id: '/_app/budget'
@@ -117,6 +153,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  PublicLoginRoute: PublicLoginRoute,
+  PublicSignupRoute: PublicSignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -30,6 +30,12 @@ export function CategorySelect({
 }: CategorySelectProps) {
 	const [open, setOpen] = useState(false);
 	const [inputValue, setInputValue] = useState("");
+
+	useEffect(() => {
+		if (!value) {
+			setInputValue("");
+		}
+	}, [value]);
 
 	const categoriesQuery = useGetCategories();
 	const categories = categoriesQuery.data ?? [];
@@ -84,6 +90,7 @@ export function CategorySelect({
 									onSelect={() => {
 										onChange(category.id);
 										setOpen(false);
+										setInputValue("");
 									}}
 								>
 									<Check
