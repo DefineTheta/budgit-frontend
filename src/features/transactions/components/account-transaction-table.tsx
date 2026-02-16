@@ -24,17 +24,28 @@ type TransactionWithDraft = Transaction & { draft?: boolean };
 const columns: ColumnDef<TransactionWithDraft>[] = [
 	{
 		id: "select",
-		header: ({ table }) => (
-			<Checkbox
-				checked={
-					table.getIsAllPageRowsSelected() ||
-					(table.getIsSomePageRowsSelected() && "indeterminate")
-				}
-				onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-				aria-label="Select all"
-				className="translate-y-[2px]"
-			/>
-		),
+		header: ({ table }) => {
+			const hasSelection = table.getFilteredSelectedRowModel().rows.length > 0;
+
+			return (
+				<Checkbox
+					checked={
+						table.getIsAllPageRowsSelected() ||
+						(table.getIsSomePageRowsSelected() && "indeterminate")
+					}
+					onCheckedChange={() => {
+						if (hasSelection) {
+							table.resetRowSelection();
+							return;
+						}
+
+						table.toggleAllPageRowsSelected(true);
+					}}
+					aria-label="Select all"
+					className="translate-y-[2px]"
+				/>
+			);
+		},
 		cell: ({ row }) => (
 			<Checkbox
 				checked={row.getIsSelected()}

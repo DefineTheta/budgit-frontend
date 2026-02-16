@@ -6,6 +6,7 @@ import { endOfMonth, format, set } from "date-fns";
 
 type GoalProgress = {
 	status: "FUNDED" | "UNDERFUNDED" | null;
+	overspent: boolean;
 	progress: number;
 	segments: number;
 	text: string;
@@ -14,11 +15,13 @@ type GoalProgress = {
 export const calculateMonthlyGoalProgress = (
 	year: number,
 	monthIndex: number,
+	activity: number,
 	goal?: Goal | null,
 	allocation?: Allocation,
 ): GoalProgress => {
 	const progress: GoalProgress = {
 		status: null,
+		overspent: false,
 		progress: 0,
 		segments: 1,
 		text: "",
@@ -68,6 +71,16 @@ export const calculateMonthlyGoalProgress = (
 		progress.text = `${formatCurrency(remainingAmount)} more needed this month`;
 	} else if (monthlyDayIndex) {
 		progress.text = `${formatCurrency(remainingAmount)} more needed by the ${format(goalDate, "do")}`;
+	}
+
+	if (activity > (allocation?.amount ?? 0)) {
+		progress.overspent = true;
+
+		if (!allocation || allocation.amount === 0) {
+			progress.text = `Overspent ${formatCurrency(activity)}`;
+		} else {
+			progress.text = `Overspent ${formatCurrency(activity)} of ${formatCurrency(allocation.amount)}`;
+		}
 	}
 
 	return progress;

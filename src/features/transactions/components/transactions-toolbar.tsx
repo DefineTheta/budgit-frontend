@@ -1,19 +1,27 @@
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import type { Table } from "@tanstack/react-table";
 import { Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
-interface TransactionsToolbarProps<TData> {
+interface TransactionsToolbarProps<TData extends { inflow: number; outflow: number }> {
 	table: Table<TData>;
 	onDelete: (rows: TData[]) => void;
 }
 
-export function TransactionsToolbar<TData>({
+export function TransactionsToolbar<TData extends { inflow: number; outflow: number }>({
 	table,
 	onDelete,
 }: TransactionsToolbarProps<TData>) {
 	const selectedRows = table.getFilteredSelectedRowModel().rows;
 	const isOpen = selectedRows.length > 0;
+	const selectedTotal = selectedRows.reduce(
+		(sum, row) => sum + row.original.inflow - row.original.outflow,
+		0,
+	);
+	const formattedSelectedTotal = new Intl.NumberFormat("en-AU", {
+		style: "currency",
+		currency: "AUD",
+	}).format(selectedTotal / 100);
 
 	if (!isOpen) return null;
 
@@ -23,6 +31,7 @@ export function TransactionsToolbar<TData>({
 				{/* Left Side: Count & Clear */}
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium pl-2">{selectedRows.length} selected</span>
+					<span className="text-sm font-medium">{formattedSelectedTotal}</span>
 					<Button
 						variant="ghost"
 						size="sm"

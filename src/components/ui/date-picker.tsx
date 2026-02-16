@@ -1,3 +1,4 @@
+import { CalendarIcon } from "lucide-react";
 import * as React from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Field } from "@/components/ui/field";
@@ -8,7 +9,6 @@ import {
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
 
 function formatDate(date: Date | undefined) {
 	if (!date) {
@@ -32,9 +32,10 @@ function isValidDate(date: Date | undefined) {
 interface DatePickerInputProps {
 	date?: Date;
 	onDateChange: (date?: Date) => void;
+	inputRef?: React.Ref<HTMLInputElement>;
 }
 
-export function DatePickerInput({ date, onDateChange }: DatePickerInputProps) {
+export function DatePickerInput({ date, onDateChange, inputRef }: DatePickerInputProps) {
 	const [open, setOpen] = React.useState(false);
 	const [month, setMonth] = React.useState<Date | undefined>(date);
 	const [value, setValue] = React.useState(formatDate(date));
@@ -43,6 +44,7 @@ export function DatePickerInput({ date, onDateChange }: DatePickerInputProps) {
 		<Field className="mx-auto">
 			<InputGroup className="!bg-background">
 				<InputGroupInput
+					ref={inputRef}
 					id="date-required"
 					value={value}
 					placeholder="June 01, 2025"

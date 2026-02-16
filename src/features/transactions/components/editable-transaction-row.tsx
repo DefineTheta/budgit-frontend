@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import {
+	type KeyboardEvent as ReactKeyboardEvent,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
@@ -7,6 +12,12 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { CategorySelect } from "@/features/categories/components/category-select";
 import { PayeeSelect } from "@/features/payees/components/payee-select";
 import type { Transaction } from "@/features/transactions/config/schemas";
+
+const toCents = (value: string) => {
+	const parsed = Number.parseFloat(value);
+	if (Number.isNaN(parsed)) return 0;
+	return Math.round(parsed * 100);
+};
 
 interface EditableTransactionRowProps {
 	onCancel: () => void;
@@ -31,8 +42,9 @@ export function EditableTransactionRow({
 	const [payee, setPayee] = useState("");
 	const [category, setCategory] = useState("");
 	const [memo, setMemo] = useState("");
-	const [outflow, setOutflow] = useState(0);
-	const [inflow, setInflow] = useState(0);
+	const [outflow, setOutflow] = useState("");
+	const [inflow, setInflow] = useState("");
+	const dateInputRef = useRef<HTMLInputElement>(null);
 
 	const handleCreateTransaction = async (createMore = false) => {
 		onSave(
@@ -41,8 +53,8 @@ export function EditableTransactionRow({
 				payee,
 				category,
 				memo,
-				outflow: outflow * 100,
-				inflow: inflow * 100,
+				outflow: toCents(outflow),
+				inflow: toCents(inflow),
 			},
 			createMore,
 		);
@@ -51,9 +63,18 @@ export function EditableTransactionRow({
 			setPayee("");
 			setCategory("");
 			setMemo("");
-			setOutflow(0);
-			setInflow(0);
+			setOutflow("");
+			setInflow("");
+			requestAnimationFrame(() => {
+				dateInputRef.current?.focus();
+			});
 		}
+	};
+
+	const handleAmountEnterKey = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+		if (event.key !== "Enter") return;
+		event.preventDefault();
+		handleCreateTransaction(true);
 	};
 
 	return (
@@ -70,7 +91,7 @@ export function EditableTransactionRow({
 					{/* 	placeholder="Select date" */}
 					{/* 	className="h-8 text-sm" */}
 					{/* /> */}
-					<DatePickerInput date={date} onDateChange={setDate} />
+					<DatePickerInput date={date} onDateChange={setDate} inputRef={dateInputRef} />
 				</TableCell>
 				<TableCell>
 					<PayeeSelect value={payee} onChange={setPayee} className="h-8" />
@@ -90,7 +111,8 @@ export function EditableTransactionRow({
 					<Input
 						type="number"
 						value={outflow}
-						onChange={(e) => setOutflow(Number(e.target.value))}
+						onChange={(e) => setOutflow(e.target.value)}
+						onKeyDown={handleAmountEnterKey}
 						placeholder="0.00"
 						className="h-8 bg-background"
 						min="0"
@@ -101,7 +123,8 @@ export function EditableTransactionRow({
 					<Input
 						type="number"
 						value={inflow}
-						onChange={(e) => setInflow(Number(e.target.value))}
+						onChange={(e) => setInflow(e.target.value)}
+						onKeyDown={handleAmountEnterKey}
 						placeholder="0.00"
 						className="h-8 bg-background"
 						min="0"
@@ -149,11 +172,11 @@ export function EditableTransactionEditRow({
 	const [payee, setPayee] = useState(transaction.payee_id);
 	const [category, setCategory] = useState(transaction.category_id);
 	const [memo, setMemo] = useState(transaction.memo ?? "");
-	const [outflow, setOutflow] = useState(transaction.outflow / 100);
-	const [inflow, setInflow] = useState(transaction.inflow / 100);
+	const [outflow, setOutflow] = useState(String(transaction.outflow / 100));
+	const [inflow, setInflow] = useState(String(transaction.inflow / 100));
 
 	useEffect(() => {
-		const handleKeyDown = (event: KeyboardEvent) => {
+		const handleKeyDown = (event: globalThis.KeyboardEvent) => {
 			if (event.key === "Escape") {
 				onCancel();
 			}
@@ -162,6 +185,23 @@ export function EditableTransactionEditRow({
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [onCancel]);
+
+	const handleSave = () => {
+		onSave({
+			date: date ?? new Date(),
+			payee_id: payee,
+			category_id: category,
+			memo: memo.trim() ? memo : null,
+			outflow: toCents(outflow),
+			inflow: toCents(inflow),
+		});
+	};
+
+	const handleAmountEnterKey = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+		if (event.key !== "Enter") return;
+		event.preventDefault();
+		handleSave();
+	};
 
 	return (
 		<>
@@ -190,7 +230,8 @@ export function EditableTransactionEditRow({
 					<Input
 						type="number"
 						value={outflow}
-						onChange={(e) => setOutflow(Number(e.target.value))}
+						onChange={(e) => setOutflow(e.target.value)}
+						onKeyDown={handleAmountEnterKey}
 						placeholder="0.00"
 						className="h-8 bg-background"
 						min="0"
@@ -201,7 +242,8 @@ export function EditableTransactionEditRow({
 					<Input
 						type="number"
 						value={inflow}
-						onChange={(e) => setInflow(Number(e.target.value))}
+						onChange={(e) => setInflow(e.target.value)}
+						onKeyDown={handleAmountEnterKey}
 						placeholder="0.00"
 						className="h-8 bg-background"
 						min="0"
@@ -213,20 +255,7 @@ export function EditableTransactionEditRow({
 			<TableRow className="bg-muted/50">
 				<TableCell colSpan={100}>
 					<div className="flex justify-end gap-2">
-						<Button
-							onClick={() =>
-								onSave({
-									date: date ?? new Date(),
-									payee_id: payee,
-									category_id: category,
-									memo: memo.trim() ? memo : null,
-									outflow: Math.round(outflow * 100),
-									inflow: Math.round(inflow * 100),
-								})
-							}
-						>
-							Save
-						</Button>
+						<Button onClick={handleSave}>Save</Button>
 						<Button variant="outline" onClick={onCancel}>
 							Cancel
 						</Button>
