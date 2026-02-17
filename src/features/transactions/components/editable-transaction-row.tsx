@@ -4,6 +4,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
@@ -12,6 +13,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { CategorySelect } from "@/features/categories/components/category-select";
 import { PayeeSelect } from "@/features/payees/components/payee-select";
 import type { Transaction } from "@/features/transactions/config/schemas";
+import { AdvancedTransactionSheet } from "./advanced-transaction-sheet";
 
 const toCents = (value: string) => {
 	const parsed = Number.parseFloat(value);
@@ -20,6 +22,7 @@ const toCents = (value: string) => {
 };
 
 interface EditableTransactionRowProps {
+	accountId: string;
 	onCancel: () => void;
 	onSave: (
 		data: {
@@ -35,6 +38,7 @@ interface EditableTransactionRowProps {
 }
 
 export function EditableTransactionRow({
+	accountId,
 	onCancel,
 	onSave,
 }: EditableTransactionRowProps) {
@@ -44,17 +48,49 @@ export function EditableTransactionRow({
 	const [memo, setMemo] = useState("");
 	const [outflow, setOutflow] = useState("");
 	const [inflow, setInflow] = useState("");
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [advancedOpen, setAdvancedOpen] = useState(false);
+	const [advancedSeed, setAdvancedSeed] = useState({
+		date: new Date(),
+		payee_id: "",
+		category_id: "",
+		memo: "",
+		outflow: "",
+		inflow: "",
+	});
 	const dateInputRef = useRef<HTMLInputElement>(null);
 
+	const handleOpenAdvanced = () => {
+		setAdvancedSeed({
+			date: date ?? new Date(),
+			payee_id: payee,
+			category_id: category,
+			memo,
+			outflow,
+			inflow,
+		});
+		setAdvancedOpen(true);
+	};
+
 	const handleCreateTransaction = async (createMore = false) => {
+		const outflowAmount = toCents(outflow);
+		const inflowAmount = toCents(inflow);
+
+		if (outflowAmount > 0 && inflowAmount > 0) {
+			setErrorMessage("Transaction cannot have both inflow and outflow.");
+			return;
+		}
+
+		setErrorMessage(null);
+
 		onSave(
 			{
 				date: date ?? new Date(),
 				payee,
 				category,
 				memo,
-				outflow: toCents(outflow),
-				inflow: toCents(inflow),
+				outflow: outflowAmount,
+				inflow: inflowAmount,
 			},
 			createMore,
 		);
@@ -65,6 +101,7 @@ export function EditableTransactionRow({
 			setMemo("");
 			setOutflow("");
 			setInflow("");
+			setErrorMessage(null);
 			requestAnimationFrame(() => {
 				dateInputRef.current?.focus();
 			});
@@ -135,17 +172,37 @@ export function EditableTransactionRow({
 
 			<TableRow className="bg-muted/50">
 				<TableCell colSpan={100}>
-					<div className="flex justify-end gap-2">
-						<Button onClick={() => handleCreateTransaction()}>Save</Button>
-						<Button onClick={() => handleCreateTransaction(true)}>
-							Save and add another
+					<div className="flex items-center justify-between gap-2">
+						{errorMessage ? (
+							<p className="text-sm text-destructive">{errorMessage}</p>
+						) : (
+							<div />
+						)}
+						<div className="flex justify-end gap-2">
+							<Button variant="outline" onClick={handleOpenAdvanced}>
+								<Settings className="mr-2 h-4 w-4" />
+								Advanced
+							</Button>
+							<Button onClick={() => handleCreateTransaction()}>Save</Button>
+							<Button onClick={() => handleCreateTransaction(true)}>
+								Save and add another
 						</Button>
 						<Button variant="outline" onClick={onCancel}>
 							Cancel
 						</Button>
+						</div>
 					</div>
 				</TableCell>
 			</TableRow>
+
+			<AdvancedTransactionSheet
+				key={`${advancedSeed.date.getTime()}-${advancedSeed.payee_id}-${advancedSeed.category_id}`}
+				open={advancedOpen}
+				onOpenChange={setAdvancedOpen}
+				accountId={accountId}
+				initialValues={advancedSeed}
+				onCreated={onCancel}
+			/>
 		</>
 	);
 }
@@ -168,12 +225,16 @@ export function EditableTransactionEditRow({
 	onCancel,
 	onSave,
 }: EditableTransactionEditRowProps) {
+	const firstSplit = transaction.splits[0];
+	const outflowAmount = transaction.amount < 0 ? Math.abs(transaction.amount) : 0;
+	const inflowAmount = transaction.amount > 0 ? transaction.amount : 0;
+
 	const [date, setDate] = useState<Date | undefined>(transaction.date);
 	const [payee, setPayee] = useState(transaction.payee_id);
-	const [category, setCategory] = useState(transaction.category_id);
+	const [category, setCategory] = useState(firstSplit?.category_id ?? "");
 	const [memo, setMemo] = useState(transaction.memo ?? "");
-	const [outflow, setOutflow] = useState(String(transaction.outflow / 100));
-	const [inflow, setInflow] = useState(String(transaction.inflow / 100));
+	const [outflow, setOutflow] = useState(String(outflowAmount / 100));
+	const [inflow, setInflow] = useState(String(inflowAmount / 100));
 
 	useEffect(() => {
 		const handleKeyDown = (event: globalThis.KeyboardEvent) => {

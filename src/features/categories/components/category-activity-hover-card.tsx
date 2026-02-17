@@ -33,16 +33,8 @@ const currencyFormatter = new Intl.NumberFormat("en-AU", {
 	currency: "AUD",
 });
 
-const getSignedAmount = (inflow: number, outflow: number) => {
-	if (inflow !== 0) {
-		return inflow / 100;
-	}
-
-	if (outflow !== 0) {
-		return -Math.abs(outflow) / 100;
-	}
-
-	return 0;
+const getSignedAmount = (amount: number) => {
+	return amount / 100;
 };
 
 export const CategoryActivityHoverCard = ({
@@ -72,7 +64,7 @@ export const CategoryActivityHoverCard = ({
 				id: "amount",
 				header: () => <div className="text-right">Amount</div>,
 				cell: ({ row }) => {
-					const amount = getSignedAmount(row.original.inflow, row.original.outflow);
+					const amount = getSignedAmount(row.original.amount);
 					return <div className="text-right">{currencyFormatter.format(amount)}</div>;
 				},
 			},
@@ -97,7 +89,7 @@ export const CategoryActivityHoverCard = ({
 	});
 
 	return (
-		<HoverCard open={open} onOpenChange={setOpen}>
+		<HoverCard open={open} onOpenChange={setOpen} openDelay={500}>
 			<HoverCardTrigger asChild>
 				<button
 					type="button"

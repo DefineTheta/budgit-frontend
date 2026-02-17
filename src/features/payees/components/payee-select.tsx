@@ -75,7 +75,10 @@ export function PayeeSelect({
 					<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent container={portalContainer} className="w-[220px] p-0">
+			<PopoverContent
+				container={portalContainer}
+				className="w-[var(--radix-popover-trigger-width)] p-0"
+			>
 				<Command>
 					<CommandInput
 						placeholder="Search payees..."

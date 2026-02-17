@@ -1,18 +1,23 @@
 import z from "zod";
 
 export const TransactionSchema = z.object({
-	id: z.string(),
-	account_id: z.string(),
+	id: z.uuid(),
+	account_id: z.uuid(),
+	payee_id: z.uuid(),
 	account: z.string(),
-	category_id: z.string(),
-	payee_id: z.string(),
-	transaction_group_id: z.string().nullable(),
-	category: z.string(),
 	payee: z.string(),
 	date: z.coerce.date(),
 	memo: z.string().nullable(),
-	inflow: z.int(),
-	outflow: z.int(),
+	amount: z.number(),
+	splits: z.array(
+		z.object({
+			id: z.uuid(),
+			amount: z.number(),
+			memo: z.string().nullable(),
+			category_id: z.uuid(),
+			category: z.string(),
+		}),
+	),
 });
 
 export const TransactionDraftSchema = z.object({
@@ -24,14 +29,21 @@ export const TransactionDraftSchema = z.object({
 });
 
 export const CreateTransactionSchema = z.object({
-	account_id: z.string(),
-	category_id: z.string(),
-	payee_id: z.string(),
-	transaction_group_id: z.string().optional(),
-	date: z.coerce.date(),
-	memo: z.string().nullable(),
-	inflow: z.int(),
-	outflow: z.int(),
+	date: z.string(),
+	memo: z.string().nullable().optional(),
+	amount: z.number().default(0),
+	cleared: z.boolean().default(false),
+	payee_id: z.uuid(),
+	account_id: z.uuid(),
+	splits: z
+		.array(
+			z.object({
+				category_id: z.uuid(),
+				amount: z.number(),
+				memo: z.string().nullable(),
+			}),
+		)
+		.min(1),
 });
 export const UpdateTransactionSchema = CreateTransactionSchema.partial();
 

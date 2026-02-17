@@ -21,6 +21,35 @@ interface AccountTransactionTableProps {
 
 type TransactionWithDraft = Transaction & { draft?: boolean };
 
+const getTransactionCategory = (transaction: TransactionWithDraft) => {
+	if (transaction.splits.length === 1) {
+		return transaction.splits[0]?.category ?? "";
+	}
+
+	const categories = [...new Set(transaction.splits.map((split) => split.category))];
+	return categories.join(", ");
+};
+
+const getTransactionMemo = (transaction: TransactionWithDraft) => {
+	if (transaction.splits.length === 1) {
+		return transaction.memo ?? "";
+	}
+
+	if (transaction.memo?.trim()) {
+		return transaction.memo;
+	}
+
+	const splitMemos = [
+		...new Set(
+			transaction.splits
+				.map((split) => split.memo?.trim())
+				.filter((memo): memo is string => Boolean(memo)),
+		),
+	];
+
+	return splitMemos.join("; ");
+};
+
 const columns: ColumnDef<TransactionWithDraft>[] = [
 	{
 		id: "select",
@@ -71,23 +100,26 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 		size: 196,
 	},
 	{
-		accessorKey: "category",
+		id: "category",
+		accessorFn: (transaction) => getTransactionCategory(transaction),
 		header: "Category",
 		size: 196,
 	},
 	{
-		accessorKey: "memo",
+		id: "memo",
+		accessorFn: (transaction) => getTransactionMemo(transaction),
 		header: "Memo",
 		meta: {
 			fluid: true,
 		},
 	},
 	{
-		accessorKey: "outflow",
+		id: "outflow",
+		accessorFn: (transaction) => (transaction.amount < 0 ? Math.abs(transaction.amount) : 0),
 		header: "Outflow",
 		size: 120,
-		cell: ({ row }) => {
-			const amount = row.original.outflow / 100;
+		cell: ({ getValue }) => {
+			const amount = getValue<number>() / 100;
 			const formattedAmount = new Intl.NumberFormat("en-AU", {
 				style: "currency",
 				currency: "AUD",
@@ -97,11 +129,12 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 		},
 	},
 	{
-		accessorKey: "inflow",
+		id: "inflow",
+		accessorFn: (transaction) => (transaction.amount > 0 ? transaction.amount : 0),
 		header: "Inflow",
 		size: 120,
-		cell: ({ row }) => {
-			const amount = row.original.inflow / 100;
+		cell: ({ getValue }) => {
+			const amount = getValue<number>() / 100;
 			const formattedAmount = new Intl.NumberFormat("en-AU", {
 				style: "currency",
 				currency: "AUD",
@@ -153,17 +186,29 @@ export const AccountTransactionTable = ({
 		},
 		createMore = false,
 	) => {
-		console.log("Crete more", createMore);
+		const amount = data.inflow > 0 ? data.inflow : data.outflow > 0 ? -data.outflow : 0;
+		const date = [
+			data.date.getFullYear(),
+			String(data.date.getMonth() + 1).padStart(2, "0"),
+			String(data.date.getDate()).padStart(2, "0"),
+		].join("-");
+
 		createTransactionMutation(
 			{
 				data: {
-					date: data.date,
+					date,
 					account_id: accountId,
 					payee_id: data.payee,
-					category_id: data.category,
-					memo: data.memo,
-					outflow: data.outflow,
-					inflow: data.inflow,
+					memo: data.memo.trim() ? data.memo : null,
+					amount,
+					cleared: false,
+					splits: [
+						{
+							category_id: data.category,
+							amount,
+							memo: "",
+						},
+					],
 				},
 			},
 			{
@@ -172,7 +217,7 @@ export const AccountTransactionTable = ({
 		);
 	};
 
-	const handleTransactionsDelete = (rowsToDelete: Transaction[]) => {
+	const handleTransactionsDelete = (rowsToDelete: TransactionWithDraft[]) => {
 		rowsToDelete.forEach((row) => {
 			deleteTransactionMutation({
 				data: row,
@@ -188,6 +233,7 @@ export const AccountTransactionTable = ({
 				prependedRow={
 					isAddingTransaction && onCancelAdd ? (
 						<EditableTransactionRow
+							accountId={accountId}
 							onCancel={onCancelAdd}
 							onSave={handleTransactionCreate}
 						/>
@@ -201,13 +247,33 @@ export const AccountTransactionTable = ({
 						<EditableTransactionEditRow
 							transaction={row}
 							onCancel={() => setEditingRowId(null)}
-							onSave={(data) =>
-								updateTransactionMutation({
+							onSave={(data) => {
+								const amount =
+									data.inflow > 0 ? data.inflow : data.outflow > 0 ? -data.outflow : 0;
+								const date = [
+									data.date.getFullYear(),
+									String(data.date.getMonth() + 1).padStart(2, "0"),
+									String(data.date.getDate()).padStart(2, "0"),
+								].join("-");
+
+								return updateTransactionMutation({
 									transactionId: row.id,
 									accountId,
-									data,
-								})
-							}
+									data: {
+										date,
+										payee_id: data.payee_id,
+										memo: data.memo,
+										amount,
+										splits: [
+											{
+												category_id: data.category_id,
+												amount,
+												memo: "",
+											},
+										],
+									},
+								});
+							}}
 						/>
 					) : null
 				}

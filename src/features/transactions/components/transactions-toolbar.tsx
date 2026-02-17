@@ -3,21 +3,18 @@ import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-interface TransactionsToolbarProps<TData extends { inflow: number; outflow: number }> {
+interface TransactionsToolbarProps<TData extends { amount: number }> {
 	table: Table<TData>;
 	onDelete: (rows: TData[]) => void;
 }
 
-export function TransactionsToolbar<TData extends { inflow: number; outflow: number }>({
+export function TransactionsToolbar<TData extends { amount: number }>({
 	table,
 	onDelete,
 }: TransactionsToolbarProps<TData>) {
 	const selectedRows = table.getFilteredSelectedRowModel().rows;
 	const isOpen = selectedRows.length > 0;
-	const selectedTotal = selectedRows.reduce(
-		(sum, row) => sum + row.original.inflow - row.original.outflow,
-		0,
-	);
+	const selectedTotal = selectedRows.reduce((sum, row) => sum + row.original.amount, 0);
 	const formattedSelectedTotal = new Intl.NumberFormat("en-AU", {
 		style: "currency",
 		currency: "AUD",
