@@ -9,6 +9,7 @@ import {
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { parse } from "date-fns";
 
 function formatDate(date: Date | undefined) {
 	if (!date) {
@@ -49,7 +50,7 @@ export function DatePickerInput({ date, onDateChange, inputRef }: DatePickerInpu
 					value={value}
 					placeholder="June 01, 2025"
 					onChange={(e) => {
-						const date = new Date(e.target.value);
+						const date = parse(e.target.value, "dd/MM/yyyy", new Date());
 						setValue(e.target.value);
 						if (isValidDate(date)) {
 							onDateChange(date);
@@ -57,9 +58,34 @@ export function DatePickerInput({ date, onDateChange, inputRef }: DatePickerInpu
 						}
 					}}
 					onKeyDown={(e) => {
-						if (e.key === "ArrowDown") {
+						if (e.key === "Enter") {
 							e.preventDefault();
 							setOpen(true);
+
+							const parsedDate = parse(value, "dd/MM/yyyy", new Date());
+							if (isValidDate(parsedDate)) {
+								onDateChange(parsedDate);
+								setMonth(parsedDate);
+							}
+							return;
+						}
+
+						if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+
+						e.preventDefault();
+
+						const baseDate = date && isValidDate(date) ? new Date(date) : new Date();
+						const direction = e.key === "ArrowUp" ? 1 : -1;
+						const nextDate = new Date(baseDate);
+						nextDate.setDate(baseDate.getDate() + direction);
+
+						onDateChange(nextDate);
+						setMonth(nextDate);
+						setValue(formatDate(nextDate));
+
+						if (open) {
+							e.preventDefault();
+							setOpen(false);
 						}
 					}}
 				/>

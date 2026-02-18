@@ -7,7 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { useGetCategories } from "@/features/categories/api/get-categories";
+import { useCategories } from "@/features/categories/api/get-categories";
 import { useGetPayees } from "@/features/payees/api/get-payees";
 import { useCreateBatchTransactions } from "@/features/transactions/api/create-batch-transactions";
 import { useImportTransactions } from "@/features/transactions/api/import-transactions";
@@ -53,7 +53,7 @@ export function AddTransactionsFromFileModal({
 		useImportTransactions();
 	const { mutateAsync: createBatchTransactions, isPending: isCreatingBatch } =
 		useCreateBatchTransactions();
-	const categoriesQuery = useGetCategories();
+	const categoriesQuery = useCategories();
 	const payeesQuery = useGetPayees();
 
 	const handleFile = (nextFile: File | null) => {

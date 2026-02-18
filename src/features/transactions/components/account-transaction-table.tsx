@@ -76,7 +76,7 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 				/>
 			);
 		},
-		cell: ({ row }) => (
+		cell: ({ row }) =>
 			row.original.isSplitSubRow ? null : (
 				<Checkbox
 					checked={row.getIsSelected()}
@@ -84,8 +84,7 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 					aria-label="Select row"
 					className="translate-y-[2px]"
 				/>
-			)
-		),
+			),
 		enableSorting: false,
 		enableHiding: false,
 		size: 40,
@@ -93,7 +92,7 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 	{
 		accessorKey: "date",
 		header: "Date",
-		size: 196,
+		size: 144,
 		cell: ({ row }) => {
 			if (row.original.isSplitSubRow) return null;
 			return Intl.DateTimeFormat(undefined, {
@@ -187,7 +186,9 @@ export const AccountTransactionTable = ({
 }: AccountTransactionTableProps) => {
 	const [rowSelection, setRowSelection] = React.useState({});
 	const [editingRowId, setEditingRowId] = React.useState<string | null>(null);
-	const [editFocusTarget, setEditFocusTarget] = React.useState<EditFocusTarget | null>(null);
+	const [editFocusTarget, setEditFocusTarget] = React.useState<EditFocusTarget | null>(
+		null,
+	);
 
 	const transactionsQuery = useTransactions({
 		accountId,
@@ -221,7 +222,7 @@ export const AccountTransactionTable = ({
 
 		return {
 			...transaction,
-				subRows: transaction.splits.map((split) => ({
+			subRows: transaction.splits.map((split) => ({
 				...transaction,
 				id: `${transaction.id}-${split.id}`,
 				amount: split.amount,
@@ -234,12 +235,15 @@ export const AccountTransactionTable = ({
 		};
 	});
 
-	const defaultExpanded = transactionRows.reduce<Record<string, boolean>>((acc, row, index) => {
-		if (row.splits.length > 1) {
-			acc[String(index)] = true;
-		}
-		return acc;
-	}, {});
+	const defaultExpanded = transactionRows.reduce<Record<string, boolean>>(
+		(acc, row, index) => {
+			if (row.splits.length > 1) {
+				acc[String(index)] = true;
+			}
+			return acc;
+		},
+		{},
+	);
 
 	const handleTransactionCreate = (
 		data: {
@@ -273,7 +277,7 @@ export const AccountTransactionTable = ({
 							amount,
 							memo: "",
 						},
-				  ];
+					];
 		const date = [
 			data.date.getFullYear(),
 			String(data.date.getMonth() + 1).padStart(2, "0"),
@@ -289,6 +293,7 @@ export const AccountTransactionTable = ({
 					memo: data.memo.trim() ? data.memo : null,
 					amount,
 					cleared: false,
+					splitWith: [],
 					splits,
 				},
 			},
@@ -299,11 +304,13 @@ export const AccountTransactionTable = ({
 	};
 
 	const handleTransactionsDelete = (rowsToDelete: TransactionTableRow[]) => {
-		rowsToDelete.filter((row) => !row.isSplitSubRow).forEach((row) => {
-			deleteTransactionMutation({
-				data: row,
+		rowsToDelete
+			.filter((row) => !row.isSplitSubRow)
+			.forEach((row) => {
+				deleteTransactionMutation({
+					data: row,
+				});
 			});
-		});
 	};
 
 	return (
@@ -312,7 +319,9 @@ export const AccountTransactionTable = ({
 				columns={columns}
 				data={transactionRows}
 				getSubRows={(row) => row.subRows}
-				getRowCanExpand={(row) => row.original.splits.length > 1 && !row.original.isSplitSubRow}
+				getRowCanExpand={(row) =>
+					row.original.splits.length > 1 && !row.original.isSplitSubRow
+				}
 				enableRowSelection={(row) => !row.original.isSplitSubRow}
 				defaultExpanded={defaultExpanded}
 				prependedRow={
@@ -347,7 +356,9 @@ export const AccountTransactionTable = ({
 						field,
 						splitId: row.isSplitSubRow ? row.splitId : undefined,
 					});
-					setEditingRowId(row.isSplitSubRow ? (row.parentTransactionId ?? row.id) : row.id);
+					setEditingRowId(
+						row.isSplitSubRow ? (row.parentTransactionId ?? row.id) : row.id,
+					);
 				}}
 				renderRow={(row) =>
 					row.isSplitSubRow && editingRowId === row.parentTransactionId ? (
@@ -374,14 +385,14 @@ export const AccountTransactionTable = ({
 															? -split.outflow
 															: 0,
 												memo: split.memo.trim() ? split.memo : "",
-										}))
+											}))
 										: [
 												{
 													category_id: data.category_id,
 													amount,
 													memo: "",
 												},
-										  ];
+											];
 								const date = [
 									data.date.getFullYear(),
 									String(data.date.getMonth() + 1).padStart(2, "0"),
@@ -391,14 +402,15 @@ export const AccountTransactionTable = ({
 								return updateTransactionMutation({
 									transactionId: row.id,
 									accountId,
-									data: {
-										date,
-										payee_id: data.payee_id,
-										memo: data.memo,
-										amount,
-										splits,
-									},
-								});
+					data: {
+						date,
+						payee_id: data.payee_id,
+						memo: data.memo,
+						amount,
+						splitWith: [],
+						splits,
+					},
+				});
 							}}
 						/>
 					) : null

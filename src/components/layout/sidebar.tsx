@@ -29,7 +29,7 @@ export const Sidebar = () => {
 
 	return (
 		<>
-			<div className="w-64 py-3 px-2 flex flex-col space-y-4 bg-primary-foreground">
+			<div className="w-52 py-3 px-2 flex flex-col space-y-4 bg-primary-foreground">
 				<Link to="/budget">
 					<div className="my-2 px-2 py-2 rounded-md cursor-pointer hover:bg-secondary flex items-center">
 						<Coins className="mr-2" />

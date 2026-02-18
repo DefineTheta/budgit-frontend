@@ -56,7 +56,9 @@ export function DataTable<TData, TValue>({
 	renderRow,
 }: DataTableProps<TData, TValue>) {
 	const [expanded, setExpanded] = React.useState<ExpandedState>(defaultExpanded ?? {});
-	const [hoveredExpandedGroupId, setHoveredExpandedGroupId] = React.useState<string | null>(null);
+	const [hoveredExpandedGroupId, setHoveredExpandedGroupId] = React.useState<
+		string | null
+	>(null);
 
 	const table = useReactTable({
 		data,
@@ -140,14 +142,18 @@ export function DataTable<TData, TValue>({
 										rootParent = rootParent.getParentRow();
 									}
 
-									const isExpandedGroupRow = rootRow.getCanExpand() && rootRow.getIsExpanded();
+									const isExpandedGroupRow =
+										rootRow.getCanExpand() && rootRow.getIsExpanded();
 									const isHoveredExpandedGroup =
-										hoveredExpandedGroupId !== null && hoveredExpandedGroupId === rootRow.id;
+										hoveredExpandedGroupId !== null &&
+										hoveredExpandedGroupId === rootRow.id;
 
 									return (
 										<TableRow
 											key={row.id}
-											data-state={(row.getIsSelected() || hasSelectedParent) && "selected"}
+											data-state={
+												(row.getIsSelected() || hasSelectedParent) && "selected"
+											}
 											className={cn(
 												"h-10",
 												isHoveredExpandedGroup && "bg-muted/50",

@@ -3,7 +3,7 @@ import { CategoryBudgetTable } from "@/features/categories/components/category-b
 import type { Category } from "@/features/categories/config/schemas";
 import { GoalModal } from "@/features/goals/components/goal-modal";
 import { createFileRoute } from "@tanstack/react-router";
-import { endOfMonth, startOfMonth } from "date-fns";
+import { endOfMonth, format, startOfMonth } from "date-fns";
 import React from "react";
 
 export const Route = createFileRoute("/_app/budget")({
@@ -16,8 +16,11 @@ function RouteComponent() {
 	const [isGoalModalOpen, setIsGoalModalOpen] = React.useState(false);
 	const [selectedCategory, setSelectedCategory] = React.useState<Category>();
 
-	const startDate = React.useMemo(() => startOfMonth(month), [month]);
-	const endDate = React.useMemo(() => endOfMonth(month), [month]);
+	const startDate = React.useMemo(
+		() => format(startOfMonth(month), "yyyy-MM-dd"),
+		[month],
+	);
+	const endDate = React.useMemo(() => format(endOfMonth(month), "yyyy-MM-dd"), [month]);
 
 	const handleGoalClick = (category: Category) => {
 		setSelectedCategory(category);

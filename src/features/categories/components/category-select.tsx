@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCreateCategory } from "@/features/categories/api/create-category";
-import { useGetCategories } from "@/features/categories/api/get-categories";
+import { useCategories } from "@/features/categories/api/get-categories";
 import { cn } from "@/lib/utils";
 
 interface CategorySelectProps {
@@ -55,7 +55,7 @@ export function CategorySelect({
 		setOpen(true);
 	}, [disabled, openRequestId]);
 
-	const categoriesQuery = useGetCategories();
+	const categoriesQuery = useCategories();
 	const categories = categoriesQuery.data ?? [];
 
 	const selectedLabel = categories.find((category) => category.id === value)?.name;

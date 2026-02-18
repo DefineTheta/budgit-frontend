@@ -37,40 +37,41 @@ const getSignedAmount = (amount: number) => {
 	return amount / 100;
 };
 
+const getCategorySplitTotal = (transaction: Transaction) => {
+	return transaction.splits.reduce((sum, split) => sum + split.amount, 0);
+};
+
+const columns: ColumnDef<Transaction>[] = [
+	{
+		accessorKey: "account",
+		header: "Account",
+		cell: ({ row }) => row.original.account ?? "-",
+	},
+	{
+		accessorKey: "date",
+		header: "Date",
+		cell: ({ row }) => format(row.original.date, "dd/MM/yyyy"),
+	},
+	{
+		accessorKey: "payee",
+		header: "Payee",
+	},
+	{
+		id: "amount",
+		header: () => <div className="text-right">Amount</div>,
+		cell: ({ row }) => {
+			const amount = getSignedAmount(getCategorySplitTotal(row.original));
+			return <div className="text-right">{currencyFormatter.format(amount)}</div>;
+		},
+	},
+];
+
 export const CategoryActivityHoverCard = ({
 	categoryId,
 	categoryName,
 	activityAmount,
 }: CategoryActivityHoverCardProps) => {
 	const [open, setOpen] = useState(false);
-
-	const columns = useMemo<ColumnDef<Transaction>[]>(
-		() => [
-			{
-				accessorKey: "account",
-				header: "Account",
-				cell: ({ row }) => row.original.account ?? "-",
-			},
-			{
-				accessorKey: "date",
-				header: "Date",
-				cell: ({ row }) => format(row.original.date, "dd/MM/yyyy"),
-			},
-			{
-				accessorKey: "payee",
-				header: "Payee",
-			},
-			{
-				id: "amount",
-				header: () => <div className="text-right">Amount</div>,
-				cell: ({ row }) => {
-					const amount = getSignedAmount(row.original.amount);
-					return <div className="text-right">{currencyFormatter.format(amount)}</div>;
-				},
-			},
-		],
-		[],
-	);
 
 	const categoryTransactionsQuery = useCategoryTransactions({
 		categoryId,
@@ -98,66 +99,68 @@ export const CategoryActivityHoverCard = ({
 					{formattedActivityAmount}
 				</button>
 			</HoverCardTrigger>
-			<HoverCardContent className="w-[500px] p-0" align="end">
-				<div className="px-4 pt-3 pb-2">
-					<p className="text-base font-semibold">{categoryName}</p>
-					<p className="mt-1 text-sm text-muted-foreground">
-						{categoryTransactionsQuery.isLoading
-							? "Loading transactions..."
-							: `${transactionCount} ${transactionCount === 1 ? "transaction" : "transactions"}`}
-					</p>
-				</div>
-				{categoryTransactionsQuery.isLoading ? (
-					<div className="px-4 pb-4 text-sm text-muted-foreground">Loading...</div>
-				) : categoryTransactionsQuery.isError ? (
-					<div className="px-4 pb-4 text-sm text-destructive">
-						Could not load transactions.
+			{open && (
+				<HoverCardContent className="w-[500px] p-0" align="end">
+					<div className="px-4 pt-3 pb-2">
+						<p className="text-base font-semibold">{categoryName}</p>
+						<p className="mt-1 text-sm text-muted-foreground">
+							{categoryTransactionsQuery.isLoading
+								? "Loading transactions..."
+								: `${transactionCount} ${transactionCount === 1 ? "transaction" : "transactions"}`}
+						</p>
 					</div>
-				) : (
-					<div className="max-h-72 overflow-auto px-2 pb-2">
-						<Table>
-							<TableHeader>
-								{table.getHeaderGroups().map((headerGroup) => (
-									<TableRow key={headerGroup.id}>
-										{headerGroup.headers.map((header) => (
-											<TableHead key={header.id}>
-												{header.isPlaceholder
-													? null
-													: flexRender(
-															header.column.columnDef.header,
-															header.getContext(),
-														)}
-											</TableHead>
-										))}
-									</TableRow>
-								))}
-							</TableHeader>
-							<TableBody>
-								{table.getRowModel().rows.length ? (
-									table.getRowModel().rows.map((row) => (
-										<TableRow key={row.id}>
-											{row.getVisibleCells().map((cell) => (
-												<TableCell key={cell.id}>
-													{flexRender(cell.column.columnDef.cell, cell.getContext())}
-												</TableCell>
+					{categoryTransactionsQuery.isLoading ? (
+						<div className="px-4 pb-4 text-sm text-muted-foreground">Loading...</div>
+					) : categoryTransactionsQuery.isError ? (
+						<div className="px-4 pb-4 text-sm text-destructive">
+							Could not load transactions.
+						</div>
+					) : (
+						<div className="max-h-72 overflow-auto px-2 pb-2">
+							<Table>
+								<TableHeader>
+									{table.getHeaderGroups().map((headerGroup) => (
+										<TableRow key={headerGroup.id}>
+											{headerGroup.headers.map((header) => (
+												<TableHead key={header.id}>
+													{header.isPlaceholder
+														? null
+														: flexRender(
+																header.column.columnDef.header,
+																header.getContext(),
+															)}
+												</TableHead>
 											))}
 										</TableRow>
-									))
-								) : (
-									<TableRow>
-										<TableCell
-											colSpan={columns.length}
-											className="text-center text-muted-foreground"
-										>
-											No transactions.
-										</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</div>
-				)}
-			</HoverCardContent>
+									))}
+								</TableHeader>
+								<TableBody>
+									{table.getRowModel().rows.length ? (
+										table.getRowModel().rows.map((row) => (
+											<TableRow key={row.id}>
+												{row.getVisibleCells().map((cell) => (
+													<TableCell key={cell.id}>
+														{flexRender(cell.column.columnDef.cell, cell.getContext())}
+													</TableCell>
+												))}
+											</TableRow>
+										))
+									) : (
+										<TableRow>
+											<TableCell
+												colSpan={columns.length}
+												className="text-center text-muted-foreground"
+											>
+												No transactions.
+											</TableCell>
+										</TableRow>
+									)}
+								</TableBody>
+							</Table>
+						</div>
+					)}
+				</HoverCardContent>
+			)}
 		</HoverCard>
 	);
 };

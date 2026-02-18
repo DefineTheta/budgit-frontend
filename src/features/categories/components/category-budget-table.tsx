@@ -12,8 +12,8 @@ import { CategoryActivityHoverCard } from "./category-activity-hover-card";
 import { EditableAllocatedCell } from "./editable-allocated-cell";
 
 interface CategoryBudgetTableProps {
-	startDate: Date;
-	endDate: Date;
+	startDate: string;
+	endDate: string;
 	handleGoalClick: (category: Category) => void;
 }
 
@@ -22,8 +22,8 @@ export const CategoryBudgetTable = ({
 	endDate,
 	handleGoalClick,
 }: CategoryBudgetTableProps) => {
-	const columns = React.useMemo<ColumnDef<Category>[]>(
-		() => [
+	const columns = React.useMemo<ColumnDef<Category>[]>(() => {
+		return [
 			{
 				id: "category",
 				header: "Category",
@@ -104,9 +104,8 @@ export const CategoryBudgetTable = ({
 					</Tooltip>
 				),
 			},
-		],
-		[startDate],
-	);
+		];
+	}, [startDate]);
 
 	const categoriesQuery = useCategories({
 		queryParams: {
@@ -114,11 +113,12 @@ export const CategoryBudgetTable = ({
 			start: startDate,
 			end: endDate,
 		},
+		queryConfig: {
+			placeholderData: (previousData) => previousData,
+		},
 	});
 
-	const categories = categoriesQuery?.data;
-
-	if (!categories) return;
+	const categories = categoriesQuery.data ?? [];
 
 	return (
 		<DataTable

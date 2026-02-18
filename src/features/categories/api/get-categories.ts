@@ -7,8 +7,8 @@ import type { QueryConfig } from "@/lib/react-query";
 export const categoriesListsQueryKey = ["categories", "list"] as const;
 export type GetCategoriesQueryParams = {
 	expand?: string;
-	start?: Date;
-	end?: Date;
+	start?: string;
+	end?: string;
 };
 
 export const getCategories = async (
@@ -40,11 +40,4 @@ export const useCategories = ({
 		...getCategoriesQueryOptions(queryParams),
 		...queryConfig,
 	});
-};
-
-export const useGetCategories = ({
-	queryParams,
-	queryConfig,
-}: UseCategoriesOptions = {}) => {
-	return useCategories({ queryParams, queryConfig });
 };

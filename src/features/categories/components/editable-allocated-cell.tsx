@@ -12,7 +12,7 @@ interface EditableAllocatedCellProps<TData> {
 	row: Row<TData>;
 	column: Column<TData>;
 	table: Table<TData>;
-	month: Date;
+	month: string;
 }
 
 export const EditableAllocatedCell = <TData,>({
@@ -58,7 +58,7 @@ export const EditableAllocatedCell = <TData,>({
 				createAllocationMutation({
 					categoryId: row.original.id,
 					data: {
-						month: format(startOfMonth(month), "yyy-MM-dd"),
+						month: format(startOfMonth(month), "yyyy-MM-dd"),
 						amount: numericValue * 100,
 					},
 				});

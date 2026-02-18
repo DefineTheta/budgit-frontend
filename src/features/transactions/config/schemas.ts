@@ -16,6 +16,7 @@ export const TransactionSchema = z.object({
 			memo: z.string().nullable(),
 			category_id: z.uuid(),
 			category: z.string(),
+			type: z.enum(["USER", "SYSTEM"]),
 		}),
 	),
 });
@@ -44,6 +45,7 @@ export const CreateTransactionSchema = z.object({
 			}),
 		)
 		.min(1),
+	splitWith: z.array(z.string()),
 });
 export const UpdateTransactionSchema = CreateTransactionSchema.partial({
 	date: true,
