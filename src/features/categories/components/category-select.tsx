@@ -21,6 +21,7 @@ interface CategorySelectProps {
 	onChange: (value: string) => void;
 	onSplitClick?: () => void;
 	showSplitButton?: boolean;
+	openRequestId?: number;
 	disabled?: boolean;
 	placeholder?: string;
 	className?: string;
@@ -31,6 +32,7 @@ export function CategorySelect({
 	onChange,
 	onSplitClick,
 	showSplitButton = true,
+	openRequestId,
 	disabled = false,
 	placeholder = "Category",
 	className,
@@ -46,6 +48,12 @@ export function CategorySelect({
 			setInputValue("");
 		}
 	}, [value]);
+
+	useEffect(() => {
+		if (openRequestId === undefined) return;
+		if (disabled) return;
+		setOpen(true);
+	}, [disabled, openRequestId]);
 
 	const categoriesQuery = useGetCategories();
 	const categories = categoriesQuery.data ?? [];

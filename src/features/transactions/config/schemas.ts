@@ -45,7 +45,12 @@ export const CreateTransactionSchema = z.object({
 		)
 		.min(1),
 });
-export const UpdateTransactionSchema = CreateTransactionSchema.partial();
+export const UpdateTransactionSchema = CreateTransactionSchema.partial({
+	date: true,
+	cleared: true,
+	payee_id: true,
+	account_id: true,
+});
 
 export const ImportTransactionSchema = z.object({
 	reference_date: z.coerce.date(),

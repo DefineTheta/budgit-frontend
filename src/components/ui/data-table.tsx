@@ -1,7 +1,10 @@
 import {
 	type ColumnDef,
+	type ExpandedState,
 	flexRender,
 	getCoreRowModel,
+	getExpandedRowModel,
+	type Row,
 	type Table as TanstackTable,
 	useReactTable,
 } from "@tanstack/react-table";
@@ -21,12 +24,17 @@ interface DataTableProps<TData, TValue> {
 	disableHover?: boolean;
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
+	getSubRows?: (originalRow: TData, index: number) => undefined | TData[];
+	getRowCanExpand?: (row: Row<TData>) => boolean;
+	enableRowSelection?: boolean | ((row: Row<TData>) => boolean);
+	defaultExpanded?: ExpandedState;
 	prependedRow?: ReactNode;
 	rowSelection?: Record<string, boolean>;
 	setRowSelection?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 	renderToolbar?: (table: TanstackTable<TData>) => React.ReactNode;
 	onEdit?: (row: TData) => void;
 	onRowDoubleClick?: (row: TData) => void;
+	onCellDoubleClick?: (row: TData, columnId: string) => void;
 	renderRow?: (row: TData) => React.ReactNode | null;
 }
 
@@ -34,23 +42,37 @@ export function DataTable<TData, TValue>({
 	disableHover = false,
 	columns,
 	data,
+	getSubRows,
+	getRowCanExpand,
+	enableRowSelection = true,
+	defaultExpanded,
 	prependedRow,
 	rowSelection,
 	setRowSelection,
 	renderToolbar,
 	onEdit,
 	onRowDoubleClick,
+	onCellDoubleClick,
 	renderRow,
 }: DataTableProps<TData, TValue>) {
+	const [expanded, setExpanded] = React.useState<ExpandedState>(defaultExpanded ?? {});
+	const [hoveredExpandedGroupId, setHoveredExpandedGroupId] = React.useState<string | null>(null);
+
 	const table = useReactTable({
 		data,
 		columns,
+		getSubRows,
+		getRowCanExpand,
 		getCoreRowModel: getCoreRowModel(),
+		getExpandedRowModel: getExpandedRowModel(),
+		onExpandedChange: setExpanded,
 		onRowSelectionChange: setRowSelection,
 		state: {
+			expanded,
 			rowSelection: rowSelection ?? {},
 		},
-		enableRowSelection: true,
+		enableSubRowSelection: false,
+		enableRowSelection,
 		meta: {
 			onEdit,
 		},
@@ -95,11 +117,54 @@ export function DataTable<TData, TValue>({
 										return <React.Fragment key={row.id}>{customRow}</React.Fragment>;
 									}
 
+									const directParentRow = row.getParentRow();
+									const isLastSubRow =
+										Boolean(directParentRow) &&
+										row.index === (directParentRow?.subRows.length ?? 0) - 1;
+									let parentRow = row.getParentRow();
+									let hasSelectedParent = false;
+
+									while (parentRow) {
+										if (parentRow.getIsSelected()) {
+											hasSelectedParent = true;
+											break;
+										}
+										parentRow = parentRow.getParentRow();
+									}
+
+									let rootRow = row;
+									let rootParent = row.getParentRow();
+
+									while (rootParent) {
+										rootRow = rootParent;
+										rootParent = rootParent.getParentRow();
+									}
+
+									const isExpandedGroupRow = rootRow.getCanExpand() && rootRow.getIsExpanded();
+									const isHoveredExpandedGroup =
+										hoveredExpandedGroupId !== null && hoveredExpandedGroupId === rootRow.id;
+
 									return (
 										<TableRow
 											key={row.id}
-											data-state={row.getIsSelected() && "selected"}
-											className={cn("h-10", disableHover && "hover:bg-transparent")}
+											data-state={(row.getIsSelected() || hasSelectedParent) && "selected"}
+											className={cn(
+												"h-10",
+												isHoveredExpandedGroup && "bg-muted/50",
+												row.getCanExpand() && row.getIsExpanded() && "border-border/40",
+												row.depth > 0 && !isLastSubRow && "border-border/40",
+												disableHover && "hover:bg-transparent",
+											)}
+											onMouseEnter={() => {
+												if (!isExpandedGroupRow) return;
+												setHoveredExpandedGroupId(rootRow.id);
+											}}
+											onMouseLeave={() => {
+												if (!isExpandedGroupRow) return;
+												setHoveredExpandedGroupId((current) =>
+													current === rootRow.id ? null : current,
+												);
+											}}
 											onDoubleClick={
 												onRowDoubleClick
 													? () => onRowDoubleClick(row.original)
@@ -107,7 +172,14 @@ export function DataTable<TData, TValue>({
 											}
 										>
 											{row.getVisibleCells().map((cell) => (
-												<TableCell key={cell.id}>
+												<TableCell
+													key={cell.id}
+													onDoubleClick={(event) => {
+														if (!onCellDoubleClick) return;
+														event.stopPropagation();
+														onCellDoubleClick(row.original, cell.column.id);
+													}}
+												>
 													{flexRender(cell.column.columnDef.cell, cell.getContext())}
 												</TableCell>
 											))}

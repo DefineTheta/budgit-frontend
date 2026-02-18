@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/data-table";
@@ -20,6 +21,17 @@ interface AccountTransactionTableProps {
 }
 
 type TransactionWithDraft = Transaction & { draft?: boolean };
+type TransactionTableRow = TransactionWithDraft & {
+	isSplitSubRow?: boolean;
+	parentTransactionId?: string;
+	splitId?: string;
+	subRows?: TransactionTableRow[];
+};
+
+type EditFocusTarget = {
+	field: "date" | "payee" | "category" | "memo" | "outflow" | "inflow";
+	splitId?: string;
+};
 
 const getTransactionCategory = (transaction: TransactionWithDraft) => {
 	if (transaction.splits.length === 1) {
@@ -39,18 +51,10 @@ const getTransactionMemo = (transaction: TransactionWithDraft) => {
 		return transaction.memo;
 	}
 
-	const splitMemos = [
-		...new Set(
-			transaction.splits
-				.map((split) => split.memo?.trim())
-				.filter((memo): memo is string => Boolean(memo)),
-		),
-	];
-
-	return splitMemos.join("; ");
+	return "";
 };
 
-const columns: ColumnDef<TransactionWithDraft>[] = [
+const columns: ColumnDef<TransactionTableRow>[] = [
 	{
 		id: "select",
 		header: ({ table }) => {
@@ -73,12 +77,14 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 			);
 		},
 		cell: ({ row }) => (
-			<Checkbox
-				checked={row.getIsSelected()}
-				onCheckedChange={(value) => row.toggleSelected(!!value)}
-				aria-label="Select row"
-				className="translate-y-[2px]"
-			/>
+			row.original.isSplitSubRow ? null : (
+				<Checkbox
+					checked={row.getIsSelected()}
+					onCheckedChange={(value) => row.toggleSelected(!!value)}
+					aria-label="Select row"
+					className="translate-y-[2px]"
+				/>
+			)
 		),
 		enableSorting: false,
 		enableHiding: false,
@@ -89,6 +95,7 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 		header: "Date",
 		size: 196,
 		cell: ({ row }) => {
+			if (row.original.isSplitSubRow) return null;
 			return Intl.DateTimeFormat(undefined, {
 				dateStyle: "short",
 			}).format(row.original.date);
@@ -97,12 +104,39 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 	{
 		accessorKey: "payee",
 		header: "Payee",
+		cell: ({ row }) => (row.original.isSplitSubRow ? null : row.original.payee),
 		size: 196,
 	},
 	{
 		id: "category",
 		accessorFn: (transaction) => getTransactionCategory(transaction),
 		header: "Category",
+		cell: ({ row }) => {
+			const splitCount = row.original.splits.length;
+
+			if (row.getCanExpand()) {
+				return (
+					<button
+						type="button"
+						onClick={row.getToggleExpandedHandler()}
+						className="inline-flex items-center gap-1 text-left"
+					>
+						{row.getIsExpanded() ? (
+							<ChevronDown className="h-4 w-4 text-muted-foreground" />
+						) : (
+							<ChevronRight className="h-4 w-4 text-muted-foreground" />
+						)}
+						<span>{`Split (${splitCount})`}</span>
+					</button>
+				);
+			}
+
+			if (row.original.isSplitSubRow) {
+				return <div className="pl-5">{getTransactionCategory(row.original)}</div>;
+			}
+
+			return getTransactionCategory(row.original);
+		},
 		size: 256,
 	},
 	{
@@ -153,6 +187,7 @@ export const AccountTransactionTable = ({
 }: AccountTransactionTableProps) => {
 	const [rowSelection, setRowSelection] = React.useState({});
 	const [editingRowId, setEditingRowId] = React.useState<string | null>(null);
+	const [editFocusTarget, setEditFocusTarget] = React.useState<EditFocusTarget | null>(null);
 
 	const transactionsQuery = useTransactions({
 		accountId,
@@ -168,13 +203,43 @@ export const AccountTransactionTable = ({
 
 	const { mutate: updateTransactionMutation } = useUpdateTransaction({
 		mutationConfig: {
-			onSuccess: () => setEditingRowId(null),
+			onSuccess: () => {
+				setEditingRowId(null);
+				setEditFocusTarget(null);
+			},
 		},
 	});
 
 	const transactions = transactionsQuery.data;
 
 	if (!transactions) return null;
+
+	const transactionRows: TransactionTableRow[] = transactions.map((transaction) => {
+		if (transaction.splits.length <= 1) {
+			return transaction;
+		}
+
+		return {
+			...transaction,
+				subRows: transaction.splits.map((split) => ({
+				...transaction,
+				id: `${transaction.id}-${split.id}`,
+				amount: split.amount,
+				memo: split.memo,
+				splits: [split],
+				isSplitSubRow: true,
+				parentTransactionId: transaction.id,
+				splitId: split.id,
+			})),
+		};
+	});
+
+	const defaultExpanded = transactionRows.reduce<Record<string, boolean>>((acc, row, index) => {
+		if (row.splits.length > 1) {
+			acc[String(index)] = true;
+		}
+		return acc;
+	}, {});
 
 	const handleTransactionCreate = (
 		data: {
@@ -233,8 +298,8 @@ export const AccountTransactionTable = ({
 		);
 	};
 
-	const handleTransactionsDelete = (rowsToDelete: TransactionWithDraft[]) => {
-		rowsToDelete.forEach((row) => {
+	const handleTransactionsDelete = (rowsToDelete: TransactionTableRow[]) => {
+		rowsToDelete.filter((row) => !row.isSplitSubRow).forEach((row) => {
 			deleteTransactionMutation({
 				data: row,
 			});
@@ -245,7 +310,11 @@ export const AccountTransactionTable = ({
 		<div className="relative space-y-4">
 			<DataTable
 				columns={columns}
-				data={transactions}
+				data={transactionRows}
+				getSubRows={(row) => row.subRows}
+				getRowCanExpand={(row) => row.original.splits.length > 1 && !row.original.isSplitSubRow}
+				enableRowSelection={(row) => !row.original.isSplitSubRow}
+				defaultExpanded={defaultExpanded}
 				prependedRow={
 					isAddingTransaction && onCancelAdd ? (
 						<EditableTransactionRow
@@ -256,12 +325,41 @@ export const AccountTransactionTable = ({
 				}
 				rowSelection={rowSelection}
 				setRowSelection={setRowSelection}
-				onRowDoubleClick={(row) => setEditingRowId(row.id)}
+				onRowDoubleClick={(row) => {
+					if (row.isSplitSubRow) return;
+					setEditFocusTarget({ field: "date" });
+					setEditingRowId(row.id);
+				}}
+				onCellDoubleClick={(row, columnId) => {
+					if (columnId === "select") return;
+
+					const field =
+						columnId === "date" ||
+						columnId === "payee" ||
+						columnId === "category" ||
+						columnId === "memo" ||
+						columnId === "outflow" ||
+						columnId === "inflow"
+							? columnId
+							: "date";
+
+					setEditFocusTarget({
+						field,
+						splitId: row.isSplitSubRow ? row.splitId : undefined,
+					});
+					setEditingRowId(row.isSplitSubRow ? (row.parentTransactionId ?? row.id) : row.id);
+				}}
 				renderRow={(row) =>
-					editingRowId === row.id ? (
+					row.isSplitSubRow && editingRowId === row.parentTransactionId ? (
+						<></>
+					) : editingRowId === row.id ? (
 						<EditableTransactionEditRow
 							transaction={row}
-							onCancel={() => setEditingRowId(null)}
+							onCancel={() => {
+								setEditingRowId(null);
+								setEditFocusTarget(null);
+							}}
+							initialFocus={editFocusTarget}
 							onSave={(data) => {
 								const amount =
 									data.inflow > 0 ? data.inflow : data.outflow > 0 ? -data.outflow : 0;

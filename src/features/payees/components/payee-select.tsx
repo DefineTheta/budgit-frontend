@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 interface PayeeSelectProps {
 	value?: string;
 	onChange: (value: string) => void;
+	openRequestId?: number;
 	placeholder?: string;
 	className?: string;
 }
@@ -25,6 +26,7 @@ interface PayeeSelectProps {
 export function PayeeSelect({
 	value,
 	onChange,
+	openRequestId,
 	placeholder = "Payee",
 	className,
 }: PayeeSelectProps) {
@@ -39,6 +41,11 @@ export function PayeeSelect({
 			setInputValue("");
 		}
 	}, [value]);
+
+	useEffect(() => {
+		if (openRequestId === undefined) return;
+		setOpen(true);
+	}, [openRequestId]);
 
 	const payeesQuery = useGetPayees();
 	const payees = payeesQuery.data ?? [];

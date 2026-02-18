@@ -80,7 +80,8 @@ export function EditableTransactionRow({
 		onSubmit: ({ value }) => {
 			const outflowAmount = toCents(value.outflow);
 			const inflowAmount = toCents(value.inflow);
-			const transactionAmount = inflowAmount > 0 ? inflowAmount : outflowAmount > 0 ? -outflowAmount : 0;
+			const transactionAmount =
+				inflowAmount > 0 ? inflowAmount : outflowAmount > 0 ? -outflowAmount : 0;
 
 			if (outflowAmount > 0 && inflowAmount > 0) {
 				setErrorMessage("Transaction cannot have both inflow and outflow.");
@@ -119,7 +120,9 @@ export function EditableTransactionRow({
 				}));
 
 				const splitTotal = splitsPayload.reduce(
-					(sum, split) => sum + (split.inflow > 0 ? split.inflow : split.outflow > 0 ? -split.outflow : 0),
+					(sum, split) =>
+						sum +
+						(split.inflow > 0 ? split.inflow : split.outflow > 0 ? -split.outflow : 0),
 					0,
 				);
 
@@ -135,7 +138,9 @@ export function EditableTransactionRow({
 				{
 					date: value.date,
 					payee: value.payee,
-					category: value.isSplitMode ? (value.splitRows[0]?.category ?? "") : value.category,
+					category: value.isSplitMode
+						? (value.splitRows[0]?.category ?? "")
+						: value.category,
 					memo: value.memo,
 					outflow: outflowAmount,
 					inflow: inflowAmount,
@@ -202,7 +207,9 @@ export function EditableTransactionRow({
 	const handleUpdateSplitRow = (id: string, patch: Partial<SplitRow>) => {
 		form.setFieldValue(
 			"splitRows",
-			form.state.values.splitRows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+			form.state.values.splitRows.map((row) =>
+				row.id === id ? { ...row, ...patch } : row,
+			),
 		);
 	};
 
@@ -322,7 +329,9 @@ export function EditableTransactionRow({
 										<TableCell>
 											<CategorySelect
 												value={splitRow.category}
-												onChange={(value) => handleUpdateSplitRow(splitRow.id, { category: value })}
+												onChange={(value) =>
+													handleUpdateSplitRow(splitRow.id, { category: value })
+												}
 												showSplitButton={false}
 												className="h-8"
 											/>
@@ -342,7 +351,9 @@ export function EditableTransactionRow({
 												type="number"
 												value={splitRow.outflow}
 												onChange={(event) =>
-													handleUpdateSplitRow(splitRow.id, { outflow: event.target.value })
+													handleUpdateSplitRow(splitRow.id, {
+														outflow: event.target.value,
+													})
 												}
 												onKeyDown={handleAmountEnterKey}
 												placeholder="0.00"
@@ -356,7 +367,9 @@ export function EditableTransactionRow({
 												type="number"
 												value={splitRow.inflow}
 												onChange={(event) =>
-													handleUpdateSplitRow(splitRow.id, { inflow: event.target.value })
+													handleUpdateSplitRow(splitRow.id, {
+														inflow: event.target.value,
+													})
 												}
 												onKeyDown={handleAmountEnterKey}
 												placeholder="0.00"
@@ -446,6 +459,10 @@ export function EditableTransactionRow({
 interface EditableTransactionEditRowProps {
 	transaction: Transaction;
 	onCancel: () => void;
+	initialFocus?: {
+		field: "date" | "payee" | "category" | "memo" | "outflow" | "inflow";
+		splitId?: string;
+	} | null;
 	onSave: (data: {
 		date: Date;
 		payee_id: string;
@@ -465,6 +482,7 @@ interface EditableTransactionEditRowProps {
 export function EditableTransactionEditRow({
 	transaction,
 	onCancel,
+	initialFocus,
 	onSave,
 }: EditableTransactionEditRowProps) {
 	const firstSplit = transaction.splits[0];
@@ -481,16 +499,32 @@ export function EditableTransactionEditRow({
 	const [isSplitMode, setIsSplitMode] = useState(hasInitialSplits);
 	const [splitRows, setSplitRows] = useState<SplitRow[]>(
 		hasInitialSplits
-			? transaction.splits.map((split, index) => ({
-					id: `${transaction.id}-split-${index}`,
+			? transaction.splits.map((split) => ({
+					id: split.id,
 					category: split.category_id,
 					memo: split.memo ?? "",
 					outflow: split.amount < 0 ? String(Math.abs(split.amount) / 100) : "",
 					inflow: split.amount > 0 ? String(split.amount / 100) : "",
-			  }))
+				}))
 			: [],
 	);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const dateInputRef = useRef<HTMLInputElement>(null);
+	const memoInputRef = useRef<HTMLInputElement>(null);
+	const outflowInputRef = useRef<HTMLInputElement>(null);
+	const inflowInputRef = useRef<HTMLInputElement>(null);
+	const payeeFieldRef = useRef<HTMLDivElement>(null);
+	const categoryFieldRef = useRef<HTMLDivElement>(null);
+	const splitCategoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const splitMemoRefs = useRef<Record<string, HTMLInputElement | null>>({});
+	const splitOutflowRefs = useRef<Record<string, HTMLInputElement | null>>({});
+	const splitInflowRefs = useRef<Record<string, HTMLInputElement | null>>({});
+	const [payeeOpenRequestId, setPayeeOpenRequestId] = useState(0);
+	const [categoryOpenRequestId, setCategoryOpenRequestId] = useState(0);
+	const [splitCategoryOpenRequest, setSplitCategoryOpenRequest] = useState<{
+		id: string;
+		requestId: number;
+	} | null>(null);
 
 	useEffect(() => {
 		const handleKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -502,6 +536,66 @@ export function EditableTransactionEditRow({
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [onCancel]);
+
+	useEffect(() => {
+		if (!initialFocus) return;
+
+		const focusElement = () => {
+			if (initialFocus.splitId && isSplitMode) {
+				if (initialFocus.field === "category") {
+					setSplitCategoryOpenRequest({
+						id: initialFocus.splitId,
+						requestId: Date.now(),
+					});
+					splitCategoryRefs.current[initialFocus.splitId]
+						?.querySelector<HTMLButtonElement>("button")
+						?.focus();
+					return;
+				}
+
+				if (initialFocus.field === "memo") {
+					splitMemoRefs.current[initialFocus.splitId]?.focus();
+					return;
+				}
+
+				if (initialFocus.field === "outflow") {
+					splitOutflowRefs.current[initialFocus.splitId]?.focus();
+					return;
+				}
+
+				if (initialFocus.field === "inflow") {
+					splitInflowRefs.current[initialFocus.splitId]?.focus();
+					return;
+				}
+			}
+
+			switch (initialFocus.field) {
+				case "date":
+					dateInputRef.current?.focus();
+					break;
+				case "payee":
+					setPayeeOpenRequestId(Date.now());
+					payeeFieldRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+					break;
+				case "category":
+					if (isSplitMode) return;
+					setCategoryOpenRequestId(Date.now());
+					categoryFieldRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+					break;
+				case "memo":
+					memoInputRef.current?.focus();
+					break;
+				case "outflow":
+					outflowInputRef.current?.focus();
+					break;
+				case "inflow":
+					inflowInputRef.current?.focus();
+					break;
+			}
+		};
+
+		requestAnimationFrame(focusElement);
+	}, [initialFocus, isSplitMode]);
 
 	const handleDeleteSplitRow = (id: string) => {
 		setSplitRows((currentRows) => {
@@ -548,7 +642,9 @@ export function EditableTransactionEditRow({
 				return;
 			}
 
-			if (splitRows.some((split) => toCents(split.outflow) > 0 && toCents(split.inflow) > 0)) {
+			if (
+				splitRows.some((split) => toCents(split.outflow) > 0 && toCents(split.inflow) > 0)
+			) {
 				setErrorMessage("Each split can only have inflow or outflow, not both.");
 				return;
 			}
@@ -558,7 +654,9 @@ export function EditableTransactionEditRow({
 			const splitAmountTotal = splitRows.reduce((sum, split) => {
 				const splitOutflow = toCents(split.outflow);
 				const splitInflow = toCents(split.inflow);
-				return sum + (splitInflow > 0 ? splitInflow : splitOutflow > 0 ? -splitOutflow : 0);
+				return (
+					sum + (splitInflow > 0 ? splitInflow : splitOutflow > 0 ? -splitOutflow : 0)
+				);
 			}, 0);
 
 			if (splitAmountTotal !== transactionAmount) {
@@ -593,13 +691,20 @@ export function EditableTransactionEditRow({
 		handleSave();
 	};
 
-	const splitOutflowTotal = splitRows.reduce((sum, split) => sum + toCents(split.outflow), 0);
-	const splitInflowTotal = splitRows.reduce((sum, split) => sum + toCents(split.inflow), 0);
+	const splitOutflowTotal = splitRows.reduce(
+		(sum, split) => sum + toCents(split.outflow),
+		0,
+	);
+	const splitInflowTotal = splitRows.reduce(
+		(sum, split) => sum + toCents(split.inflow),
+		0,
+	);
 	const totalOutflow = toCents(outflow);
 	const totalInflow = toCents(inflow);
 	const remainingOutflow = totalOutflow - splitOutflowTotal;
 	const remainingInflow = totalInflow - splitInflowTotal;
-	const hasOverAssignedSplits = splitOutflowTotal > totalOutflow || splitInflowTotal > totalInflow;
+	const hasOverAssignedSplits =
+		splitOutflowTotal > totalOutflow || splitInflowTotal > totalInflow;
 
 	return (
 		<>
@@ -608,23 +713,34 @@ export function EditableTransactionEditRow({
 					<Checkbox checked={false} />
 				</TableCell>
 				<TableCell>
-					<DatePickerInput date={date} onDateChange={setDate} />
+					<DatePickerInput date={date} onDateChange={setDate} inputRef={dateInputRef} />
 				</TableCell>
 				<TableCell>
-					<PayeeSelect value={payee} onChange={setPayee} className="h-8" />
+					<div ref={payeeFieldRef}>
+						<PayeeSelect
+							value={payee}
+							onChange={setPayee}
+							openRequestId={payeeOpenRequestId}
+							className="h-8"
+						/>
+					</div>
 				</TableCell>
 				<TableCell>
-					<CategorySelect
-						value={isSplitMode ? "" : category}
-						onChange={setCategory}
-						disabled={isSplitMode}
-						showSplitButton={false}
-						placeholder={isSplitMode ? "Split" : "Category"}
-						className="h-8"
-					/>
+					<div ref={categoryFieldRef}>
+						<CategorySelect
+							value={isSplitMode ? "" : category}
+							onChange={setCategory}
+							openRequestId={categoryOpenRequestId}
+							disabled={isSplitMode}
+							showSplitButton={false}
+							placeholder={isSplitMode ? "Split" : "Category"}
+							className="h-8"
+						/>
+					</div>
 				</TableCell>
 				<TableCell>
 					<Input
+						ref={memoInputRef}
 						value={memo}
 						onChange={(e) => setMemo(e.target.value)}
 						placeholder="Memo"
@@ -633,6 +749,7 @@ export function EditableTransactionEditRow({
 				</TableCell>
 				<TableCell>
 					<Input
+						ref={outflowInputRef}
 						type="number"
 						value={outflow}
 						onChange={(e) => setOutflow(e.target.value)}
@@ -645,6 +762,7 @@ export function EditableTransactionEditRow({
 				</TableCell>
 				<TableCell>
 					<Input
+						ref={inflowInputRef}
 						type="number"
 						value={inflow}
 						onChange={(e) => setInflow(e.target.value)}
@@ -678,26 +796,49 @@ export function EditableTransactionEditRow({
 								</div>
 							</TableCell>
 							<TableCell>
-								<CategorySelect
-									value={split.category}
-									onChange={(value) => handleUpdateSplitRow(split.id, { category: value })}
-									showSplitButton={false}
-									className="h-8"
-								/>
+								<div
+									ref={(node) => {
+										splitCategoryRefs.current[split.id] = node;
+									}}
+								>
+									<CategorySelect
+										value={split.category}
+										onChange={(value) =>
+											handleUpdateSplitRow(split.id, { category: value })
+										}
+										openRequestId={
+											splitCategoryOpenRequest?.id === split.id
+												? splitCategoryOpenRequest.requestId
+												: undefined
+										}
+										showSplitButton={false}
+										className="h-8"
+									/>
+								</div>
 							</TableCell>
 							<TableCell>
 								<Input
+									ref={(node) => {
+										splitMemoRefs.current[split.id] = node;
+									}}
 									value={split.memo}
-									onChange={(event) => handleUpdateSplitRow(split.id, { memo: event.target.value })}
+									onChange={(event) =>
+										handleUpdateSplitRow(split.id, { memo: event.target.value })
+									}
 									placeholder="Memo"
 									className="h-8 w-full min-w-0 bg-background"
 								/>
 							</TableCell>
 							<TableCell>
 								<Input
+									ref={(node) => {
+										splitOutflowRefs.current[split.id] = node;
+									}}
 									type="number"
 									value={split.outflow}
-									onChange={(event) => handleUpdateSplitRow(split.id, { outflow: event.target.value })}
+									onChange={(event) =>
+										handleUpdateSplitRow(split.id, { outflow: event.target.value })
+									}
 									onKeyDown={handleAmountEnterKey}
 									placeholder="0.00"
 									className="h-8 bg-background"
@@ -707,9 +848,14 @@ export function EditableTransactionEditRow({
 							</TableCell>
 							<TableCell>
 								<Input
+									ref={(node) => {
+										splitInflowRefs.current[split.id] = node;
+									}}
 									type="number"
 									value={split.inflow}
-									onChange={(event) => handleUpdateSplitRow(split.id, { inflow: event.target.value })}
+									onChange={(event) =>
+										handleUpdateSplitRow(split.id, { inflow: event.target.value })
+									}
 									onKeyDown={handleAmountEnterKey}
 									placeholder="0.00"
 									className="h-8 bg-background"
@@ -772,12 +918,16 @@ export function EditableTransactionEditRow({
 			<TableRow className="bg-muted/50">
 				<TableCell colSpan={100}>
 					<div className="flex items-center justify-between gap-2">
-						{errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : <div />}
+						{errorMessage ? (
+							<p className="text-sm text-destructive">{errorMessage}</p>
+						) : (
+							<div />
+						)}
 						<div className="flex justify-end gap-2">
-						<Button onClick={handleSave}>Save</Button>
-						<Button variant="outline" onClick={onCancel}>
-							Cancel
-						</Button>
+							<Button onClick={handleSave}>Save</Button>
+							<Button variant="outline" onClick={onCancel}>
+								Cancel
+							</Button>
 						</div>
 					</div>
 				</TableCell>
