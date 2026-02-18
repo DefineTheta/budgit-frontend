@@ -1,6 +1,7 @@
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Split } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
 	Command,
 	CommandEmpty,
@@ -18,6 +19,9 @@ import { cn } from "@/lib/utils";
 interface CategorySelectProps {
 	value?: string;
 	onChange: (value: string) => void;
+	onSplitClick?: () => void;
+	showSplitButton?: boolean;
+	disabled?: boolean;
 	placeholder?: string;
 	className?: string;
 }
@@ -25,6 +29,9 @@ interface CategorySelectProps {
 export function CategorySelect({
 	value,
 	onChange,
+	onSplitClick,
+	showSplitButton = true,
+	disabled = false,
 	placeholder = "Category",
 	className,
 }: CategorySelectProps) {
@@ -63,18 +70,47 @@ export function CategorySelect({
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<Button
-					ref={triggerRef}
-					variant="outline"
-					role="combobox"
-					aria-expanded={open}
-					className={cn("w-full justify-between", className)}
-				>
-					{value ? selectedLabel : placeholder}
-					<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-				</Button>
-			</PopoverTrigger>
+			{showSplitButton ? (
+				<ButtonGroup className={cn("w-full", className)}>
+					<PopoverTrigger asChild>
+						<Button
+							ref={triggerRef}
+							variant="outline"
+							role="combobox"
+							aria-expanded={open}
+							disabled={disabled}
+							className="h-full flex-1 justify-between"
+						>
+							{value ? selectedLabel : placeholder}
+							<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+						</Button>
+					</PopoverTrigger>
+					<Button
+						type="button"
+						variant="outline"
+						className="h-full w-9 shrink-0 px-0"
+						onClick={onSplitClick}
+						disabled={disabled || !onSplitClick}
+						aria-label="Split transaction"
+					>
+						<Split className="h-4 w-4 rotate-90" />
+					</Button>
+				</ButtonGroup>
+			) : (
+				<PopoverTrigger asChild>
+					<Button
+						ref={triggerRef}
+						variant="outline"
+						role="combobox"
+						aria-expanded={open}
+						disabled={disabled}
+						className={cn("w-full justify-between", className)}
+					>
+						{value ? selectedLabel : placeholder}
+						<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+					</Button>
+				</PopoverTrigger>
+			)}
 			<PopoverContent
 				container={portalContainer}
 				className="w-[var(--radix-popover-trigger-width)] p-0"

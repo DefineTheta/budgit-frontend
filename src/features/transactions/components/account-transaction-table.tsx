@@ -103,7 +103,7 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 		id: "category",
 		accessorFn: (transaction) => getTransactionCategory(transaction),
 		header: "Category",
-		size: 196,
+		size: 256,
 	},
 	{
 		id: "memo",
@@ -115,7 +115,8 @@ const columns: ColumnDef<TransactionWithDraft>[] = [
 	},
 	{
 		id: "outflow",
-		accessorFn: (transaction) => (transaction.amount < 0 ? Math.abs(transaction.amount) : 0),
+		accessorFn: (transaction) =>
+			transaction.amount < 0 ? Math.abs(transaction.amount) : 0,
 		header: "Outflow",
 		size: 120,
 		cell: ({ getValue }) => {
@@ -183,10 +184,31 @@ export const AccountTransactionTable = ({
 			memo: string;
 			outflow: number;
 			inflow: number;
+			splits?: {
+				category: string;
+				memo: string;
+				outflow: number;
+				inflow: number;
+			}[];
 		},
 		createMore = false,
 	) => {
 		const amount = data.inflow > 0 ? data.inflow : data.outflow > 0 ? -data.outflow : 0;
+		const splits =
+			data.splits && data.splits.length > 0
+				? data.splits.map((split) => ({
+						category_id: split.category,
+						amount:
+							split.inflow > 0 ? split.inflow : split.outflow > 0 ? -split.outflow : 0,
+						memo: split.memo.trim() ? split.memo : "",
+					}))
+				: [
+						{
+							category_id: data.category,
+							amount,
+							memo: "",
+						},
+				  ];
 		const date = [
 			data.date.getFullYear(),
 			String(data.date.getMonth() + 1).padStart(2, "0"),
@@ -202,13 +224,7 @@ export const AccountTransactionTable = ({
 					memo: data.memo.trim() ? data.memo : null,
 					amount,
 					cleared: false,
-					splits: [
-						{
-							category_id: data.category,
-							amount,
-							memo: "",
-						},
-					],
+					splits,
 				},
 			},
 			{
@@ -233,7 +249,6 @@ export const AccountTransactionTable = ({
 				prependedRow={
 					isAddingTransaction && onCancelAdd ? (
 						<EditableTransactionRow
-							accountId={accountId}
 							onCancel={onCancelAdd}
 							onSave={handleTransactionCreate}
 						/>
@@ -250,6 +265,25 @@ export const AccountTransactionTable = ({
 							onSave={(data) => {
 								const amount =
 									data.inflow > 0 ? data.inflow : data.outflow > 0 ? -data.outflow : 0;
+								const splits =
+									data.splits && data.splits.length > 0
+										? data.splits.map((split) => ({
+												category_id: split.category_id,
+												amount:
+													split.inflow > 0
+														? split.inflow
+														: split.outflow > 0
+															? -split.outflow
+															: 0,
+												memo: split.memo.trim() ? split.memo : "",
+										}))
+										: [
+												{
+													category_id: data.category_id,
+													amount,
+													memo: "",
+												},
+										  ];
 								const date = [
 									data.date.getFullYear(),
 									String(data.date.getMonth() + 1).padStart(2, "0"),
@@ -264,13 +298,7 @@ export const AccountTransactionTable = ({
 										payee_id: data.payee_id,
 										memo: data.memo,
 										amount,
-										splits: [
-											{
-												category_id: data.category_id,
-												amount,
-												memo: "",
-											},
-										],
+										splits,
 									},
 								});
 							}}

@@ -4,7 +4,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Settings } from "lucide-react";
+import { useForm } from "@tanstack/react-form";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
@@ -13,7 +14,8 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { CategorySelect } from "@/features/categories/components/category-select";
 import { PayeeSelect } from "@/features/payees/components/payee-select";
 import type { Transaction } from "@/features/transactions/config/schemas";
-import { AdvancedTransactionSheet } from "./advanced-transaction-sheet";
+import { formatCurrency } from "@/utils/currency";
+import { cn } from "@/lib/utils";
 
 const toCents = (value: string) => {
 	const parsed = Number.parseFloat(value);
@@ -22,7 +24,6 @@ const toCents = (value: string) => {
 };
 
 interface EditableTransactionRowProps {
-	accountId: string;
 	onCancel: () => void;
 	onSave: (
 		data: {
@@ -32,80 +33,182 @@ interface EditableTransactionRowProps {
 			memo: string;
 			outflow: number;
 			inflow: number;
+			splits?: {
+				category: string;
+				memo: string;
+				outflow: number;
+				inflow: number;
+			}[];
 		},
 		createMore: boolean,
 	) => void;
 }
 
+type SplitRow = {
+	id: string;
+	category: string;
+	memo: string;
+	outflow: string;
+	inflow: string;
+};
+
 export function EditableTransactionRow({
-	accountId,
 	onCancel,
 	onSave,
 }: EditableTransactionRowProps) {
-	const [date, setDate] = useState<Date | undefined>(new Date());
-	const [payee, setPayee] = useState("");
-	const [category, setCategory] = useState("");
-	const [memo, setMemo] = useState("");
-	const [outflow, setOutflow] = useState("");
-	const [inflow, setInflow] = useState("");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [advancedOpen, setAdvancedOpen] = useState(false);
-	const [advancedSeed, setAdvancedSeed] = useState({
-		date: new Date(),
-		payee_id: "",
-		category_id: "",
-		memo: "",
-		outflow: "",
-		inflow: "",
-	});
 	const dateInputRef = useRef<HTMLInputElement>(null);
+	const splitIdRef = useRef(0);
+	const createMoreRef = useRef(false);
 
-	const handleOpenAdvanced = () => {
-		setAdvancedSeed({
-			date: date ?? new Date(),
-			payee_id: payee,
-			category_id: category,
-			memo,
-			outflow,
-			inflow,
-		});
-		setAdvancedOpen(true);
+	const nextSplitId = () => {
+		splitIdRef.current += 1;
+		return `split-${splitIdRef.current}`;
 	};
 
-	const handleCreateTransaction = async (createMore = false) => {
-		const outflowAmount = toCents(outflow);
-		const inflowAmount = toCents(inflow);
+	const form = useForm({
+		defaultValues: {
+			date: new Date(),
+			payee: "",
+			category: "",
+			memo: "",
+			outflow: "",
+			inflow: "",
+			isSplitMode: false,
+			splitRows: [] as SplitRow[],
+		},
+		onSubmit: ({ value }) => {
+			const outflowAmount = toCents(value.outflow);
+			const inflowAmount = toCents(value.inflow);
+			const transactionAmount = inflowAmount > 0 ? inflowAmount : outflowAmount > 0 ? -outflowAmount : 0;
 
-		if (outflowAmount > 0 && inflowAmount > 0) {
-			setErrorMessage("Transaction cannot have both inflow and outflow.");
-			return;
-		}
+			if (outflowAmount > 0 && inflowAmount > 0) {
+				setErrorMessage("Transaction cannot have both inflow and outflow.");
+				return;
+			}
 
-		setErrorMessage(null);
+			let splitsPayload:
+				| {
+						category: string;
+						memo: string;
+						outflow: number;
+						inflow: number;
+				  }[]
+				| undefined;
 
-		onSave(
-			{
-				date: date ?? new Date(),
-				payee,
-				category,
-				memo,
-				outflow: outflowAmount,
-				inflow: inflowAmount,
-			},
-			createMore,
-		);
+			if (value.isSplitMode) {
+				if (value.splitRows.some((split) => !split.category)) {
+					setErrorMessage("Each split must have a category.");
+					return;
+				}
 
-		if (createMore) {
-			setPayee("");
-			setCategory("");
-			setMemo("");
-			setOutflow("");
-			setInflow("");
+				if (
+					value.splitRows.some(
+						(split) => toCents(split.outflow) > 0 && toCents(split.inflow) > 0,
+					)
+				) {
+					setErrorMessage("Each split can only have inflow or outflow, not both.");
+					return;
+				}
+
+				splitsPayload = value.splitRows.map((split) => ({
+					category: split.category,
+					memo: split.memo,
+					outflow: toCents(split.outflow),
+					inflow: toCents(split.inflow),
+				}));
+
+				const splitTotal = splitsPayload.reduce(
+					(sum, split) => sum + (split.inflow > 0 ? split.inflow : split.outflow > 0 ? -split.outflow : 0),
+					0,
+				);
+
+				if (splitTotal !== transactionAmount) {
+					setErrorMessage("Split amounts must add up to the transaction total.");
+					return;
+				}
+			}
+
 			setErrorMessage(null);
+
+			onSave(
+				{
+					date: value.date,
+					payee: value.payee,
+					category: value.isSplitMode ? (value.splitRows[0]?.category ?? "") : value.category,
+					memo: value.memo,
+					outflow: outflowAmount,
+					inflow: inflowAmount,
+					splits: splitsPayload,
+				},
+				createMoreRef.current,
+			);
+
+			if (!createMoreRef.current) return;
+
+			form.setFieldValue("payee", "");
+			form.setFieldValue("category", "");
+			form.setFieldValue("memo", "");
+			form.setFieldValue("outflow", "");
+			form.setFieldValue("inflow", "");
+			form.setFieldValue("isSplitMode", false);
+			form.setFieldValue("splitRows", []);
+			setErrorMessage(null);
+
 			requestAnimationFrame(() => {
 				dateInputRef.current?.focus();
 			});
+		},
+	});
+
+	const handleEnableSplit = () => {
+		const values = form.state.values;
+		if (values.isSplitMode) return;
+
+		form.setFieldValue("splitRows", [
+			{
+				id: nextSplitId(),
+				category: values.category,
+				memo: values.memo,
+				outflow: values.outflow,
+				inflow: values.inflow,
+			},
+		]);
+		form.setFieldValue("category", "");
+		form.setFieldValue("isSplitMode", true);
+	};
+
+	const handleDeleteSplitRow = (id: string) => {
+		const nextRows = form.state.values.splitRows.filter((row) => row.id !== id);
+		form.setFieldValue("splitRows", nextRows);
+		if (nextRows.length === 0) {
+			form.setFieldValue("isSplitMode", false);
 		}
+	};
+
+	const handleAddSplitRow = () => {
+		form.setFieldValue("splitRows", [
+			...form.state.values.splitRows,
+			{
+				id: nextSplitId(),
+				category: "",
+				memo: "",
+				outflow: "",
+				inflow: "",
+			},
+		]);
+	};
+
+	const handleUpdateSplitRow = (id: string, patch: Partial<SplitRow>) => {
+		form.setFieldValue(
+			"splitRows",
+			form.state.values.splitRows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+		);
+	};
+
+	const handleCreateTransaction = (createMore = false) => {
+		createMoreRef.current = createMore;
+		form.handleSubmit();
 	};
 
 	const handleAmountEnterKey = (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -115,95 +218,228 @@ export function EditableTransactionRow({
 	};
 
 	return (
-		<>
-			<TableRow className="bg-muted/50 border-b-0">
-				<TableCell>
-					<Checkbox checked={true} />
-				</TableCell>
-				<TableCell>
-					{/* <CalendarDatePicker date={date} onDateSelect={setDate} /> */}
-					{/* <DatePicker */}
-					{/* 	date={date} */}
-					{/* 	onDateChange={setDate} */}
-					{/* 	placeholder="Select date" */}
-					{/* 	className="h-8 text-sm" */}
-					{/* /> */}
-					<DatePickerInput date={date} onDateChange={setDate} inputRef={dateInputRef} />
-				</TableCell>
-				<TableCell>
-					<PayeeSelect value={payee} onChange={setPayee} className="h-8" />
-				</TableCell>
-				<TableCell>
-					<CategorySelect value={category} onChange={setCategory} className="h-8" />
-				</TableCell>
-				<TableCell>
-					<Input
-						value={memo}
-						onChange={(e) => setMemo(e.target.value)}
-						placeholder="Memo"
-						className="h-8 w-full min-w-0 bg-background"
-					/>
-				</TableCell>
-				<TableCell>
-					<Input
-						type="number"
-						value={outflow}
-						onChange={(e) => setOutflow(e.target.value)}
-						onKeyDown={handleAmountEnterKey}
-						placeholder="0.00"
-						className="h-8 bg-background"
-						min="0"
-						step="0.01"
-					/>
-				</TableCell>
-				<TableCell>
-					<Input
-						type="number"
-						value={inflow}
-						onChange={(e) => setInflow(e.target.value)}
-						onKeyDown={handleAmountEnterKey}
-						placeholder="0.00"
-						className="h-8 bg-background"
-						min="0"
-						step="0.01"
-					/>
-				</TableCell>
-			</TableRow>
+		<form.Subscribe selector={(store) => store.values}>
+			{(values) => {
+				const splitOutflowTotal = values.splitRows.reduce(
+					(sum, row) => sum + toCents(row.outflow),
+					0,
+				);
+				const splitInflowTotal = values.splitRows.reduce(
+					(sum, row) => sum + toCents(row.inflow),
+					0,
+				);
+				const totalOutflow = toCents(values.outflow);
+				const totalInflow = toCents(values.inflow);
+				const remainingOutflow = totalOutflow - splitOutflowTotal;
+				const remainingInflow = totalInflow - splitInflowTotal;
+				const hasOverAssignedSplits =
+					splitOutflowTotal > totalOutflow || splitInflowTotal > totalInflow;
 
-			<TableRow className="bg-muted/50">
-				<TableCell colSpan={100}>
-					<div className="flex items-center justify-between gap-2">
-						{errorMessage ? (
-							<p className="text-sm text-destructive">{errorMessage}</p>
-						) : (
-							<div />
-						)}
-						<div className="flex justify-end gap-2">
-							<Button variant="outline" onClick={handleOpenAdvanced}>
-								<Settings className="mr-2 h-4 w-4" />
-								Advanced
-							</Button>
-							<Button onClick={() => handleCreateTransaction()}>Save</Button>
-							<Button onClick={() => handleCreateTransaction(true)}>
-								Save and add another
-						</Button>
-						<Button variant="outline" onClick={onCancel}>
-							Cancel
-						</Button>
-						</div>
-					</div>
-				</TableCell>
-			</TableRow>
+				return (
+					<>
+						<TableRow className="bg-muted/50 border-b-0">
+							<TableCell>
+								<Checkbox checked={true} />
+							</TableCell>
+							<TableCell>
+								<DatePickerInput
+									date={values.date}
+									onDateChange={(date) => form.setFieldValue("date", date ?? new Date())}
+									inputRef={dateInputRef}
+								/>
+							</TableCell>
+							<TableCell>
+								<PayeeSelect
+									value={values.payee}
+									onChange={(value) => form.setFieldValue("payee", value)}
+									className="h-8"
+								/>
+							</TableCell>
+							<TableCell>
+								<CategorySelect
+									value={values.isSplitMode ? "" : values.category}
+									onChange={(value) => form.setFieldValue("category", value)}
+									onSplitClick={handleEnableSplit}
+									disabled={values.isSplitMode}
+									placeholder={values.isSplitMode ? "Split" : "Category"}
+									className="h-8"
+								/>
+							</TableCell>
+							<TableCell>
+								<Input
+									value={values.memo}
+									onChange={(event) => form.setFieldValue("memo", event.target.value)}
+									placeholder="Memo"
+									className="h-8 w-full min-w-0 bg-background"
+								/>
+							</TableCell>
+							<TableCell>
+								<Input
+									type="number"
+									value={values.outflow}
+									onChange={(event) => form.setFieldValue("outflow", event.target.value)}
+									onKeyDown={handleAmountEnterKey}
+									placeholder="0.00"
+									className="h-8 bg-background"
+									min="0"
+									step="0.01"
+								/>
+							</TableCell>
+							<TableCell>
+								<Input
+									type="number"
+									value={values.inflow}
+									onChange={(event) => form.setFieldValue("inflow", event.target.value)}
+									onKeyDown={handleAmountEnterKey}
+									placeholder="0.00"
+									className="h-8 bg-background"
+									min="0"
+									step="0.01"
+								/>
+							</TableCell>
+						</TableRow>
 
-			<AdvancedTransactionSheet
-				key={`${advancedSeed.date.getTime()}-${advancedSeed.payee_id}-${advancedSeed.category_id}`}
-				open={advancedOpen}
-				onOpenChange={setAdvancedOpen}
-				accountId={accountId}
-				initialValues={advancedSeed}
-				onCreated={onCancel}
-			/>
-		</>
+						{values.isSplitMode && values.splitRows.length > 0 ? (
+							<>
+								{values.splitRows.map((splitRow) => (
+									<TableRow key={splitRow.id} className="bg-muted/50 border-b-0">
+										<TableCell />
+										<TableCell />
+										<TableCell>
+											<div className="flex items-center justify-end">
+												<Button
+													type="button"
+													variant="secondary"
+													size="icon"
+													className="h-8 w-8 rounded-full"
+													onClick={() => handleDeleteSplitRow(splitRow.id)}
+													aria-label="Delete split"
+												>
+													<Trash2 className="h-4 w-4" />
+												</Button>
+											</div>
+										</TableCell>
+										<TableCell>
+											<CategorySelect
+												value={splitRow.category}
+												onChange={(value) => handleUpdateSplitRow(splitRow.id, { category: value })}
+												showSplitButton={false}
+												className="h-8"
+											/>
+										</TableCell>
+										<TableCell>
+											<Input
+												value={splitRow.memo}
+												onChange={(event) =>
+													handleUpdateSplitRow(splitRow.id, { memo: event.target.value })
+												}
+												placeholder="Memo"
+												className="h-8 w-full min-w-0 bg-background"
+											/>
+										</TableCell>
+										<TableCell>
+											<Input
+												type="number"
+												value={splitRow.outflow}
+												onChange={(event) =>
+													handleUpdateSplitRow(splitRow.id, { outflow: event.target.value })
+												}
+												onKeyDown={handleAmountEnterKey}
+												placeholder="0.00"
+												className="h-8 bg-background"
+												min="0"
+												step="0.01"
+											/>
+										</TableCell>
+										<TableCell>
+											<Input
+												type="number"
+												value={splitRow.inflow}
+												onChange={(event) =>
+													handleUpdateSplitRow(splitRow.id, { inflow: event.target.value })
+												}
+												onKeyDown={handleAmountEnterKey}
+												placeholder="0.00"
+												className="h-8 bg-background"
+												min="0"
+												step="0.01"
+											/>
+										</TableCell>
+									</TableRow>
+								))}
+								<TableRow className="text-sm bg-muted/50 border-b-0">
+									<TableCell />
+									<TableCell />
+									<TableCell />
+									<TableCell>
+										<Button
+											type="button"
+											variant="secondary"
+											className="h-8 w-full px-2 text-accent-foreground"
+											onClick={handleAddSplitRow}
+										>
+											<Plus className="h-4 w-4" />
+											Add another split
+										</Button>
+									</TableCell>
+									<TableCell>
+										<p
+											className={cn(
+												"text-sm text-muted-foreground",
+												hasOverAssignedSplits && "text-destructive",
+											)}
+										>
+											Remaining to assign:
+										</p>
+									</TableCell>
+									<TableCell>
+										<p
+											className={cn(
+												"text-muted-foreground",
+												hasOverAssignedSplits && "text-destructive",
+											)}
+										>
+											{formatCurrency(remainingOutflow)}
+										</p>
+									</TableCell>
+									<TableCell>
+										<p
+											className={cn(
+												"text-muted-foreground",
+												hasOverAssignedSplits && "text-destructive",
+											)}
+										>
+											{formatCurrency(remainingInflow)}
+										</p>
+									</TableCell>
+								</TableRow>
+							</>
+						) : null}
+
+						<TableRow className="bg-muted/50">
+							<TableCell colSpan={100}>
+								<div className="flex items-center justify-between gap-2">
+									{errorMessage ? (
+										<p className="text-sm text-destructive">{errorMessage}</p>
+									) : (
+										<div />
+									)}
+									<div className="flex justify-end gap-2">
+										<Button onClick={() => handleCreateTransaction()}>Save</Button>
+										<Button onClick={() => handleCreateTransaction(true)}>
+											Save and add another
+										</Button>
+										<Button variant="outline" onClick={onCancel}>
+											Cancel
+										</Button>
+									</div>
+								</div>
+							</TableCell>
+						</TableRow>
+					</>
+				);
+			}}
+		</form.Subscribe>
 	);
 }
 
@@ -217,6 +453,12 @@ interface EditableTransactionEditRowProps {
 		memo: string | null;
 		outflow: number;
 		inflow: number;
+		splits?: {
+			category_id: string;
+			memo: string;
+			outflow: number;
+			inflow: number;
+		}[];
 	}) => void;
 }
 
@@ -228,6 +470,7 @@ export function EditableTransactionEditRow({
 	const firstSplit = transaction.splits[0];
 	const outflowAmount = transaction.amount < 0 ? Math.abs(transaction.amount) : 0;
 	const inflowAmount = transaction.amount > 0 ? transaction.amount : 0;
+	const hasInitialSplits = transaction.splits.length > 1;
 
 	const [date, setDate] = useState<Date | undefined>(transaction.date);
 	const [payee, setPayee] = useState(transaction.payee_id);
@@ -235,6 +478,19 @@ export function EditableTransactionEditRow({
 	const [memo, setMemo] = useState(transaction.memo ?? "");
 	const [outflow, setOutflow] = useState(String(outflowAmount / 100));
 	const [inflow, setInflow] = useState(String(inflowAmount / 100));
+	const [isSplitMode, setIsSplitMode] = useState(hasInitialSplits);
+	const [splitRows, setSplitRows] = useState<SplitRow[]>(
+		hasInitialSplits
+			? transaction.splits.map((split, index) => ({
+					id: `${transaction.id}-split-${index}`,
+					category: split.category_id,
+					memo: split.memo ?? "",
+					outflow: split.amount < 0 ? String(Math.abs(split.amount) / 100) : "",
+					inflow: split.amount > 0 ? String(split.amount / 100) : "",
+			  }))
+			: [],
+	);
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	useEffect(() => {
 		const handleKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -247,14 +503,87 @@ export function EditableTransactionEditRow({
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [onCancel]);
 
+	const handleDeleteSplitRow = (id: string) => {
+		setSplitRows((currentRows) => {
+			const nextRows = currentRows.filter((row) => row.id !== id);
+			if (nextRows.length === 0) {
+				setIsSplitMode(false);
+			}
+			return nextRows;
+		});
+	};
+
+	const handleAddSplitRow = () => {
+		setSplitRows((currentRows) => [
+			...currentRows,
+			{
+				id: `${transaction.id}-split-${Date.now()}-${currentRows.length}`,
+				category: "",
+				memo: "",
+				outflow: "",
+				inflow: "",
+			},
+		]);
+		setIsSplitMode(true);
+	};
+
+	const handleUpdateSplitRow = (id: string, patch: Partial<SplitRow>) => {
+		setSplitRows((currentRows) =>
+			currentRows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+		);
+	};
+
 	const handleSave = () => {
+		const outflowCents = toCents(outflow);
+		const inflowCents = toCents(inflow);
+
+		if (outflowCents > 0 && inflowCents > 0) {
+			setErrorMessage("Transaction cannot have both inflow and outflow.");
+			return;
+		}
+
+		if (isSplitMode) {
+			if (splitRows.some((split) => !split.category)) {
+				setErrorMessage("Each split must have a category.");
+				return;
+			}
+
+			if (splitRows.some((split) => toCents(split.outflow) > 0 && toCents(split.inflow) > 0)) {
+				setErrorMessage("Each split can only have inflow or outflow, not both.");
+				return;
+			}
+
+			const transactionAmount =
+				inflowCents > 0 ? inflowCents : outflowCents > 0 ? -outflowCents : 0;
+			const splitAmountTotal = splitRows.reduce((sum, split) => {
+				const splitOutflow = toCents(split.outflow);
+				const splitInflow = toCents(split.inflow);
+				return sum + (splitInflow > 0 ? splitInflow : splitOutflow > 0 ? -splitOutflow : 0);
+			}, 0);
+
+			if (splitAmountTotal !== transactionAmount) {
+				setErrorMessage("Split amounts must add up to the transaction total.");
+				return;
+			}
+		}
+
+		setErrorMessage(null);
+
 		onSave({
 			date: date ?? new Date(),
 			payee_id: payee,
-			category_id: category,
+			category_id: isSplitMode ? (splitRows[0]?.category ?? "") : category,
 			memo: memo.trim() ? memo : null,
-			outflow: toCents(outflow),
-			inflow: toCents(inflow),
+			outflow: outflowCents,
+			inflow: inflowCents,
+			splits: isSplitMode
+				? splitRows.map((split) => ({
+						category_id: split.category,
+						memo: split.memo,
+						outflow: toCents(split.outflow),
+						inflow: toCents(split.inflow),
+					}))
+				: undefined,
 		});
 	};
 
@@ -263,6 +592,14 @@ export function EditableTransactionEditRow({
 		event.preventDefault();
 		handleSave();
 	};
+
+	const splitOutflowTotal = splitRows.reduce((sum, split) => sum + toCents(split.outflow), 0);
+	const splitInflowTotal = splitRows.reduce((sum, split) => sum + toCents(split.inflow), 0);
+	const totalOutflow = toCents(outflow);
+	const totalInflow = toCents(inflow);
+	const remainingOutflow = totalOutflow - splitOutflowTotal;
+	const remainingInflow = totalInflow - splitInflowTotal;
+	const hasOverAssignedSplits = splitOutflowTotal > totalOutflow || splitInflowTotal > totalInflow;
 
 	return (
 		<>
@@ -277,7 +614,14 @@ export function EditableTransactionEditRow({
 					<PayeeSelect value={payee} onChange={setPayee} className="h-8" />
 				</TableCell>
 				<TableCell>
-					<CategorySelect value={category} onChange={setCategory} className="h-8" />
+					<CategorySelect
+						value={isSplitMode ? "" : category}
+						onChange={setCategory}
+						disabled={isSplitMode}
+						showSplitButton={false}
+						placeholder={isSplitMode ? "Split" : "Category"}
+						className="h-8"
+					/>
 				</TableCell>
 				<TableCell>
 					<Input
@@ -313,13 +657,128 @@ export function EditableTransactionEditRow({
 				</TableCell>
 			</TableRow>
 
+			{isSplitMode && splitRows.length > 0 ? (
+				<>
+					{splitRows.map((split) => (
+						<TableRow key={split.id} className="bg-muted/50 border-b-0">
+							<TableCell />
+							<TableCell />
+							<TableCell>
+								<div className="flex items-center justify-end">
+									<Button
+										type="button"
+										variant="secondary"
+										size="icon"
+										className="h-8 w-8 rounded-full"
+										onClick={() => handleDeleteSplitRow(split.id)}
+										aria-label="Delete split"
+									>
+										<Trash2 className="h-4 w-4" />
+									</Button>
+								</div>
+							</TableCell>
+							<TableCell>
+								<CategorySelect
+									value={split.category}
+									onChange={(value) => handleUpdateSplitRow(split.id, { category: value })}
+									showSplitButton={false}
+									className="h-8"
+								/>
+							</TableCell>
+							<TableCell>
+								<Input
+									value={split.memo}
+									onChange={(event) => handleUpdateSplitRow(split.id, { memo: event.target.value })}
+									placeholder="Memo"
+									className="h-8 w-full min-w-0 bg-background"
+								/>
+							</TableCell>
+							<TableCell>
+								<Input
+									type="number"
+									value={split.outflow}
+									onChange={(event) => handleUpdateSplitRow(split.id, { outflow: event.target.value })}
+									onKeyDown={handleAmountEnterKey}
+									placeholder="0.00"
+									className="h-8 bg-background"
+									min="0"
+									step="0.01"
+								/>
+							</TableCell>
+							<TableCell>
+								<Input
+									type="number"
+									value={split.inflow}
+									onChange={(event) => handleUpdateSplitRow(split.id, { inflow: event.target.value })}
+									onKeyDown={handleAmountEnterKey}
+									placeholder="0.00"
+									className="h-8 bg-background"
+									min="0"
+									step="0.01"
+								/>
+							</TableCell>
+						</TableRow>
+					))}
+
+					<TableRow className="text-sm bg-muted/50 border-b-0">
+						<TableCell />
+						<TableCell />
+						<TableCell />
+						<TableCell>
+							<Button
+								type="button"
+								variant="secondary"
+								className="h-8 w-full px-2 text-accent-foreground"
+								onClick={handleAddSplitRow}
+							>
+								<Plus className="h-4 w-4" />
+								Add another split
+							</Button>
+						</TableCell>
+						<TableCell>
+							<p
+								className={cn(
+									"text-sm text-muted-foreground",
+									hasOverAssignedSplits && "text-destructive",
+								)}
+							>
+								Remaining to assign:
+							</p>
+						</TableCell>
+						<TableCell>
+							<p
+								className={cn(
+									"text-muted-foreground",
+									hasOverAssignedSplits && "text-destructive",
+								)}
+							>
+								{formatCurrency(remainingOutflow)}
+							</p>
+						</TableCell>
+						<TableCell>
+							<p
+								className={cn(
+									"text-muted-foreground",
+									hasOverAssignedSplits && "text-destructive",
+								)}
+							>
+								{formatCurrency(remainingInflow)}
+							</p>
+						</TableCell>
+					</TableRow>
+				</>
+			) : null}
+
 			<TableRow className="bg-muted/50">
 				<TableCell colSpan={100}>
-					<div className="flex justify-end gap-2">
+					<div className="flex items-center justify-between gap-2">
+						{errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : <div />}
+						<div className="flex justify-end gap-2">
 						<Button onClick={handleSave}>Save</Button>
 						<Button variant="outline" onClick={onCancel}>
 							Cancel
 						</Button>
+						</div>
 					</div>
 				</TableCell>
 			</TableRow>
