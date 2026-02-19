@@ -2,13 +2,17 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { getMonth, getYear } from "date-fns";
 import { Goal } from "lucide-react";
 import React from "react";
+import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { SegmentedProgress } from "@/components/ui/segmented-progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCategories } from "@/features/categories/api/get-categories";
 import type { Category } from "@/features/categories/config/schemas";
 import { calculateMonthlyGoalProgress } from "@/features/categories/helper/goal";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/utils/currency";
 import { CategoryActivityHoverCard } from "./category-activity-hover-card";
+import { CategoryTransferPopover } from "./category-transfer-popover";
 import { EditableAllocatedCell } from "./editable-allocated-cell";
 
 interface CategoryBudgetTableProps {
@@ -22,6 +26,19 @@ export const CategoryBudgetTable = ({
 	endDate,
 	handleGoalClick,
 }: CategoryBudgetTableProps) => {
+	const categoriesQuery = useCategories({
+		queryParams: {
+			expand: "stats,allocations,goal",
+			start: startDate,
+			end: endDate,
+		},
+		queryConfig: {
+			placeholderData: (previousData) => previousData,
+		},
+	});
+
+	const categories = categoriesQuery.data ?? [];
+
 	const columns = React.useMemo<ColumnDef<Category>[]>(() => {
 		return [
 			{
@@ -77,7 +94,7 @@ export const CategoryBudgetTable = ({
 				header: () => <div className="text-right">Activity</div>,
 				size: 144,
 				cell: ({ row }) => {
-					const amount = (row.original.stats?.total ?? 0) / 100;
+					const amount = (row.original.stats?.activity ?? 0) / 100;
 
 					return (
 						<CategoryActivityHoverCard
@@ -104,21 +121,45 @@ export const CategoryBudgetTable = ({
 					</Tooltip>
 				),
 			},
+			{
+				id: "available",
+				size: 96,
+				header: () => <div className="text-right">Available</div>,
+				accessorFn: (row) => row.stats?.available ?? 0,
+				cell: ({ row, getValue }) => {
+					const available = getValue<number>();
+					const goal = row.original.goal?.amount;
+					const allocated = row.original.allocations?.at(0)?.amount;
+
+					let color = "bg-green-500 text-black";
+
+					if (available < 0) {
+						color = "bg-red-500";
+					} else if (goal && (!allocated || allocated < goal)) {
+						color = "bg-amber-500 text-black";
+					} else if (available === 0) {
+						color = "bg-gray-500";
+					}
+
+					return (
+						<div className="flex justify-end">
+							<CategoryTransferPopover
+								sourceCategoryId={row.original.id}
+								availableAmount={available}
+								startDate={startDate}
+							>
+								<button type="button" className="cursor-pointer">
+									<Badge className={cn("px-4 h-[26px] text-sm rounded-full", color)}>
+										{formatCurrency(available)}
+									</Badge>
+								</button>
+							</CategoryTransferPopover>
+						</div>
+					);
+				},
+			},
 		];
 	}, [startDate]);
-
-	const categoriesQuery = useCategories({
-		queryParams: {
-			expand: "stats,allocations,goal",
-			start: startDate,
-			end: endDate,
-		},
-		queryConfig: {
-			placeholderData: (previousData) => previousData,
-		},
-	});
-
-	const categories = categoriesQuery.data ?? [];
 
 	return (
 		<DataTable

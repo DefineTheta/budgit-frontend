@@ -77,8 +77,8 @@ export const MonthlyGoalForm = ({
 		onSubmit: (e) => {
 			const data = {
 				...e.value,
-				repeat_day_week: undefined,
-				repeat_date_year: undefined,
+				repeat_day_week: null,
+				repeat_date_year: null,
 				amount: Math.round(e.value.amount * 100),
 			};
 			const options = {

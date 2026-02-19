@@ -1,11 +1,15 @@
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import type { Column, Row, Table } from "@tanstack/react-table";
-import React from "react";
-import type { Category } from "../config/schemas";
-import { useCreateAllocation } from "@/features/allocations/api/create-allocation";
 import { format, startOfMonth } from "date-fns";
+import { History } from "lucide-react";
+import React, { useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useCreateAllocation } from "@/features/allocations/api/create-allocation";
 import { useUpdateAllocation } from "@/features/allocations/api/update-allocation";
+import { useMathInput } from "@/hooks/use-math-input";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/utils/currency";
+import type { Category } from "../config/schemas";
 
 interface EditableAllocatedCellProps<TData> {
 	getValue: () => any;
@@ -15,36 +19,29 @@ interface EditableAllocatedCellProps<TData> {
 	month: string;
 }
 
-export const EditableAllocatedCell = <TData,>({
+export const EditableAllocatedCell = ({
 	getValue,
 	row,
-	column,
-	table,
 	month,
 }: EditableAllocatedCellProps<Category>) => {
 	const initialValue = getValue();
-	const [value, setValue] = React.useState(initialValue);
 	const [isEditing, setIsEditing] = React.useState(false);
+	const { displayValue, changeValue, handleChange, calculate } =
+		useMathInput(initialValue);
 
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
-	const { mutate: createAllocationMutation, isPending: isCreatingAllocation } =
-		useCreateAllocation();
-	const { mutate: updateAllocationMutation, isPending: isUpdatingAllocation } =
-		useUpdateAllocation();
+	const { mutate: createAllocationMutation } = useCreateAllocation();
+	const { mutate: updateAllocationMutation } = useUpdateAllocation();
 
 	const allocation = row.original.allocations?.at(0);
-
-	const formatCurrency = (amount: number) => {
-		return new Intl.NumberFormat("en-AU", {
-			style: "currency",
-			currency: "AUD",
-		}).format(amount);
-	};
+	const movedAmount = row.original.stats?.moved ?? 0;
 
 	const onBlur = () => {
 		setIsEditing(false);
-		const numericValue = parseFloat(value);
+		const numericValue = calculate();
+
+		if (numericValue === undefined) return;
 
 		if (numericValue !== initialValue) {
 			if (allocation) {
@@ -72,22 +69,19 @@ export const EditableAllocatedCell = <TData,>({
 			e.currentTarget.blur();
 		} else if (e.key === "Escape") {
 			e.preventDefault();
-			setValue(initialValue);
 			setIsEditing(false);
 		}
 	};
+
+	useEffect(() => changeValue(initialValue), [initialValue]);
 
 	if (isEditing) {
 		return (
 			<Input
 				ref={inputRef}
-				value={value}
-				onChange={(e) => {
-					const val = e.target.value;
-					if (/^\d*\.?\d*$/.test(val)) {
-						setValue(val);
-					}
-				}}
+				inputMode="decimal"
+				value={displayValue}
+				onChange={(e) => handleChange(e.target.value)}
 				onFocus={(e) => e.currentTarget.select()}
 				onBlur={onBlur}
 				onKeyDown={onKeyDown}
@@ -98,17 +92,27 @@ export const EditableAllocatedCell = <TData,>({
 	}
 
 	return (
-		<div
+		<button
+			type="button"
 			onClick={() => {
-				setValue(Number(initialValue).toFixed(2));
 				setIsEditing(true);
 			}}
 			className={cn(
-				"cursor-pointer hover:bg-muted/50 p-2 rounded-md text-right h-8 flex items-center justify-end",
+				"cursor-pointer hover:bg-muted/50 p-2 rounded-md text-right h-8 w-full flex items-center justify-end gap-1.5",
 				"border border-transparent hover:border-border",
 			)}
 		>
-			{formatCurrency(Number(value))}
-		</div>
+			{movedAmount !== 0 ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<span className="inline-flex text-muted-foreground">
+							<History className="w-3.5 h-3.5" />
+						</span>
+					</TooltipTrigger>
+					<TooltipContent>Moved {formatCurrency(movedAmount)}</TooltipContent>
+				</Tooltip>
+			) : null}
+			{displayValue}
+		</button>
 	);
 };
