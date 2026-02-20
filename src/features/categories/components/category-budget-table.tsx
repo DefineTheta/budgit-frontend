@@ -48,7 +48,7 @@ export const CategoryBudgetTable = ({
 					const goalProgress = calculateMonthlyGoalProgress(
 						getYear(startDate),
 						getMonth(startDate),
-						Math.abs(row.original.stats?.total ?? 0),
+						Math.abs(row.original.stats?.activity ?? 0),
 						row.original.goal,
 						row.original.allocations?.at(0),
 					);

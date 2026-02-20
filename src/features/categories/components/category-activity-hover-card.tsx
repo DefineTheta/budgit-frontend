@@ -5,7 +5,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
 	HoverCard,
 	HoverCardContent,

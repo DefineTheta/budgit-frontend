@@ -16,6 +16,7 @@ export const TransactionSchema = z.object({
 			memo: z.string().nullable(),
 			category_id: z.uuid(),
 			category: z.string(),
+			debtor_user_id: z.string().nullable(),
 			type: z.enum(["USER", "SYSTEM"]),
 		}),
 	),

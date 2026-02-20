@@ -1,21 +1,24 @@
+import { useForm } from "@tanstack/react-form";
+import { CircleQuestionMark, Plus, Trash2 } from "lucide-react";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	useEffect,
 	useRef,
 	useState,
 } from "react";
-import { useForm } from "@tanstack/react-form";
-import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategorySelect } from "@/features/categories/components/category-select";
 import { PayeeSelect } from "@/features/payees/components/payee-select";
 import type { Transaction } from "@/features/transactions/config/schemas";
-import { formatCurrency } from "@/utils/currency";
+import type { User } from "@/features/users/api/get-users";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/utils/currency";
+import { TransactionShareControl } from "./transaction-share-control";
 
 const toCents = (value: string) => {
 	const parsed = Number.parseFloat(value);
@@ -24,6 +27,7 @@ const toCents = (value: string) => {
 };
 
 interface EditableTransactionRowProps {
+	users: User[];
 	onCancel: () => void;
 	onSave: (
 		data: {
@@ -33,6 +37,7 @@ interface EditableTransactionRowProps {
 			memo: string;
 			outflow: number;
 			inflow: number;
+			splitWith: string[];
 			splits?: {
 				category: string;
 				memo: string;
@@ -50,9 +55,11 @@ type SplitRow = {
 	memo: string;
 	outflow: string;
 	inflow: string;
+	type?: "USER" | "SYSTEM";
 };
 
 export function EditableTransactionRow({
+	users,
 	onCancel,
 	onSave,
 }: EditableTransactionRowProps) {
@@ -76,6 +83,7 @@ export function EditableTransactionRow({
 			inflow: "",
 			isSplitMode: false,
 			splitRows: [] as SplitRow[],
+			splitWith: [] as string[],
 		},
 		onSubmit: ({ value }) => {
 			const outflowAmount = toCents(value.outflow);
@@ -144,6 +152,7 @@ export function EditableTransactionRow({
 					memo: value.memo,
 					outflow: outflowAmount,
 					inflow: inflowAmount,
+					splitWith: value.splitWith,
 					splits: splitsPayload,
 				},
 				createMoreRef.current,
@@ -158,6 +167,7 @@ export function EditableTransactionRow({
 			form.setFieldValue("inflow", "");
 			form.setFieldValue("isSplitMode", false);
 			form.setFieldValue("splitRows", []);
+			form.setFieldValue("splitWith", []);
 			setErrorMessage(null);
 
 			requestAnimationFrame(() => {
@@ -200,6 +210,7 @@ export function EditableTransactionRow({
 				memo: "",
 				outflow: "",
 				inflow: "",
+				type: "USER",
 			},
 		]);
 	};
@@ -304,6 +315,13 @@ export function EditableTransactionRow({
 									step="0.01"
 								/>
 							</TableCell>
+							<TableCell className="px-1">
+								<TransactionShareControl
+									users={users}
+									splitWith={values.splitWith}
+									onChange={(splitWith) => form.setFieldValue("splitWith", splitWith)}
+								/>
+							</TableCell>
 						</TableRow>
 
 						{values.isSplitMode && values.splitRows.length > 0 ? (
@@ -378,6 +396,7 @@ export function EditableTransactionRow({
 												step="0.01"
 											/>
 										</TableCell>
+										<TableCell />
 									</TableRow>
 								))}
 								<TableRow className="text-sm bg-muted/50 border-b-0">
@@ -425,6 +444,7 @@ export function EditableTransactionRow({
 											{formatCurrency(remainingInflow)}
 										</p>
 									</TableCell>
+									<TableCell />
 								</TableRow>
 							</>
 						) : null}
@@ -458,6 +478,7 @@ export function EditableTransactionRow({
 
 interface EditableTransactionEditRowProps {
 	transaction: Transaction;
+	users: User[];
 	onCancel: () => void;
 	initialFocus?: {
 		field: "date" | "payee" | "category" | "memo" | "outflow" | "inflow";
@@ -470,6 +491,7 @@ interface EditableTransactionEditRowProps {
 		memo: string | null;
 		outflow: number;
 		inflow: number;
+		splitWith: string[];
 		splits?: {
 			category_id: string;
 			memo: string;
@@ -481,6 +503,7 @@ interface EditableTransactionEditRowProps {
 
 export function EditableTransactionEditRow({
 	transaction,
+	users,
 	onCancel,
 	initialFocus,
 	onSave,
@@ -497,6 +520,13 @@ export function EditableTransactionEditRow({
 	const [outflow, setOutflow] = useState(String(outflowAmount / 100));
 	const [inflow, setInflow] = useState(String(inflowAmount / 100));
 	const [isSplitMode, setIsSplitMode] = useState(hasInitialSplits);
+	const [splitWith, setSplitWith] = useState<string[]>(() => {
+		const debtorUserIds = transaction.splits
+			.map((split) => split.debtor_user_id)
+			.filter((id): id is string => Boolean(id));
+
+		return [...new Set(debtorUserIds)];
+	});
 	const [splitRows, setSplitRows] = useState<SplitRow[]>(
 		hasInitialSplits
 			? transaction.splits.map((split) => ({
@@ -505,6 +535,7 @@ export function EditableTransactionEditRow({
 					memo: split.memo ?? "",
 					outflow: split.amount < 0 ? String(Math.abs(split.amount) / 100) : "",
 					inflow: split.amount > 0 ? String(split.amount / 100) : "",
+					type: split.type,
 				}))
 			: [],
 	);
@@ -616,6 +647,7 @@ export function EditableTransactionEditRow({
 				memo: "",
 				outflow: "",
 				inflow: "",
+				type: "USER",
 			},
 		]);
 		setIsSplitMode(true);
@@ -674,6 +706,7 @@ export function EditableTransactionEditRow({
 			memo: memo.trim() ? memo : null,
 			outflow: outflowCents,
 			inflow: inflowCents,
+			splitWith,
 			splits: isSplitMode
 				? splitRows.map((split) => ({
 						category_id: split.category,
@@ -773,98 +806,127 @@ export function EditableTransactionEditRow({
 						step="0.01"
 					/>
 				</TableCell>
+				<TableCell>
+					<TransactionShareControl
+						users={users}
+						splitWith={splitWith}
+						onChange={setSplitWith}
+					/>
+				</TableCell>
 			</TableRow>
 
 			{isSplitMode && splitRows.length > 0 ? (
 				<>
-					{splitRows.map((split) => (
-						<TableRow key={split.id} className="bg-muted/50 border-b-0">
-							<TableCell />
-							<TableCell />
-							<TableCell>
-								<div className="flex items-center justify-end">
-									<Button
-										type="button"
-										variant="secondary"
-										size="icon"
-										className="h-8 w-8 rounded-full"
-										onClick={() => handleDeleteSplitRow(split.id)}
-										aria-label="Delete split"
+					{splitRows.map((split) => {
+						const isSystemSplit = split.type === "SYSTEM";
+
+						return (
+							<TableRow key={split.id} className="bg-muted/50 border-b-0">
+								<TableCell />
+								<TableCell />
+								<TableCell>
+									<div className="flex items-center justify-end">
+										{isSystemSplit ? (
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground">
+														<CircleQuestionMark className="h-4 w-4" />
+													</span>
+												</TooltipTrigger>
+												<TooltipContent>
+													This split was created by the system.
+												</TooltipContent>
+											</Tooltip>
+										) : (
+											<Button
+												type="button"
+												variant="secondary"
+												size="icon"
+												className="h-8 w-8 rounded-full"
+												onClick={() => handleDeleteSplitRow(split.id)}
+												aria-label="Delete split"
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										)}
+									</div>
+								</TableCell>
+								<TableCell>
+									<div
+										ref={(node) => {
+											splitCategoryRefs.current[split.id] = node;
+										}}
 									>
-										<Trash2 className="h-4 w-4" />
-									</Button>
-								</div>
-							</TableCell>
-							<TableCell>
-								<div
-									ref={(node) => {
-										splitCategoryRefs.current[split.id] = node;
-									}}
-								>
-									<CategorySelect
-										value={split.category}
-										onChange={(value) =>
-											handleUpdateSplitRow(split.id, { category: value })
+										<CategorySelect
+											value={split.category}
+											onChange={(value) =>
+												handleUpdateSplitRow(split.id, { category: value })
+											}
+											disabled={isSystemSplit}
+											openRequestId={
+												splitCategoryOpenRequest?.id === split.id
+													? splitCategoryOpenRequest.requestId
+													: undefined
+											}
+											showSplitButton={false}
+											className="h-8"
+										/>
+									</div>
+								</TableCell>
+								<TableCell>
+									<Input
+										ref={(node) => {
+											splitMemoRefs.current[split.id] = node;
+										}}
+										value={split.memo}
+										onChange={(event) =>
+											handleUpdateSplitRow(split.id, { memo: event.target.value })
 										}
-										openRequestId={
-											splitCategoryOpenRequest?.id === split.id
-												? splitCategoryOpenRequest.requestId
-												: undefined
-										}
-										showSplitButton={false}
-										className="h-8"
+										placeholder="Memo"
+										className="h-8 w-full min-w-0 bg-background"
+										disabled={isSystemSplit}
 									/>
-								</div>
-							</TableCell>
-							<TableCell>
-								<Input
-									ref={(node) => {
-										splitMemoRefs.current[split.id] = node;
-									}}
-									value={split.memo}
-									onChange={(event) =>
-										handleUpdateSplitRow(split.id, { memo: event.target.value })
-									}
-									placeholder="Memo"
-									className="h-8 w-full min-w-0 bg-background"
-								/>
-							</TableCell>
-							<TableCell>
-								<Input
-									ref={(node) => {
-										splitOutflowRefs.current[split.id] = node;
-									}}
-									type="decimal"
-									value={split.outflow}
-									onChange={(event) =>
-										handleUpdateSplitRow(split.id, { outflow: event.target.value })
-									}
-									onKeyDown={handleAmountEnterKey}
-									placeholder="0.00"
-									className="h-8 bg-background"
-									min="0"
-									step="0.01"
-								/>
-							</TableCell>
-							<TableCell>
-								<Input
-									ref={(node) => {
-										splitInflowRefs.current[split.id] = node;
-									}}
-									type="decimal"
-									value={split.inflow}
-									onChange={(event) =>
-										handleUpdateSplitRow(split.id, { inflow: event.target.value })
-									}
-									onKeyDown={handleAmountEnterKey}
-									placeholder="0.00"
-									className="h-8 bg-background"
-									min="0"
-									step="0.01"
-								/>
-							</TableCell>
-						</TableRow>
-					))}
+								</TableCell>
+								<TableCell>
+									<Input
+										ref={(node) => {
+											splitOutflowRefs.current[split.id] = node;
+										}}
+										type="decimal"
+										value={split.outflow}
+										onChange={(event) =>
+											handleUpdateSplitRow(split.id, { outflow: event.target.value })
+										}
+										onKeyDown={handleAmountEnterKey}
+										placeholder="0.00"
+										className="h-8 bg-background"
+										min="0"
+										step="0.01"
+										disabled={isSystemSplit}
+									/>
+								</TableCell>
+								<TableCell>
+									<Input
+										ref={(node) => {
+											splitInflowRefs.current[split.id] = node;
+										}}
+										type="decimal"
+										value={split.inflow}
+										onChange={(event) =>
+											handleUpdateSplitRow(split.id, { inflow: event.target.value })
+										}
+										onKeyDown={handleAmountEnterKey}
+										placeholder="0.00"
+										className="h-8 bg-background"
+										min="0"
+										step="0.01"
+										disabled={isSystemSplit}
+									/>
+								</TableCell>
+								<TableCell />
+							</TableRow>
+						);
+					})}
 
 					<TableRow className="text-sm bg-muted/50 border-b-0">
 						<TableCell />
@@ -911,6 +973,7 @@ export function EditableTransactionEditRow({
 								{formatCurrency(remainingInflow)}
 							</p>
 						</TableCell>
+						<TableCell />
 					</TableRow>
 				</>
 			) : null}

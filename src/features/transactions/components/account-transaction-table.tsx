@@ -5,6 +5,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/data-table";
 import { useTransactions } from "@/features/transactions/api/get-transactions";
 import type { Transaction } from "@/features/transactions/config/schemas";
+import { type User, useUsers } from "@/features/users/api/get-users";
+import { formatCurrency } from "@/utils/currency";
 import { useCreateTransaction } from "../api/create-transaction";
 import { useDeleteTransactions } from "../api/delete-transaction";
 import { useUpdateTransaction } from "../api/update-transaction";
@@ -12,8 +14,8 @@ import {
 	EditableTransactionEditRow,
 	EditableTransactionRow,
 } from "./editable-transaction-row";
+import { TransactionShareControl } from "./transaction-share-control";
 import { TransactionsToolbar } from "./transactions-toolbar";
-import { formatCurrency } from "@/utils/currency";
 
 interface AccountTransactionTableProps {
 	accountId: string;
@@ -55,7 +57,28 @@ const getTransactionMemo = (transaction: TransactionWithDraft) => {
 	return "";
 };
 
-const columns: ColumnDef<TransactionTableRow>[] = [
+const toApiSplits = (splits: Transaction["splits"]) =>
+	splits.map((split) => ({
+		category_id: split.category_id,
+		amount: split.amount,
+		memo: split.memo,
+	}));
+
+const getTransactionSharedUserIds = (transaction: TransactionTableRow) => {
+	const debtorUserIds = transaction.splits
+		.map((split) => split.debtor_user_id)
+		.filter((id): id is string => Boolean(id));
+
+	return [...new Set(...debtorUserIds)];
+};
+
+const getColumns = ({
+	users,
+	onShare,
+}: {
+	users: User[];
+	onShare: (row: TransactionTableRow, splitWith: string[]) => void;
+}): ColumnDef<TransactionTableRow>[] => [
 	{
 		id: "select",
 		header: ({ table }) => {
@@ -166,6 +189,25 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 			<div className="text-right">{formatCurrency(getValue<number>())}</div>
 		),
 	},
+	{
+		id: "share",
+		header: "Share",
+		size: 80,
+		cell: ({ row }) => {
+			if (row.original.isSplitSubRow) return null;
+			const sharedUserIds = getTransactionSharedUserIds(row.original);
+
+			return (
+				<TransactionShareControl
+					users={users}
+					splitWith={sharedUserIds}
+					showPlus={false}
+					disabled
+					onChange={(splitWith) => onShare(row.original, splitWith)}
+				/>
+			);
+		},
+	},
 ];
 
 export const AccountTransactionTable = ({
@@ -182,6 +224,7 @@ export const AccountTransactionTable = ({
 	const transactionsQuery = useTransactions({
 		accountId,
 	});
+	const usersQuery = useUsers();
 
 	const { mutate: createTransactionMutation } = useCreateTransaction();
 
@@ -201,8 +244,31 @@ export const AccountTransactionTable = ({
 	});
 
 	const transactions = transactionsQuery.data;
+	const users = usersQuery.data ?? [];
 
 	if (!transactions) return null;
+
+	const columns = getColumns({
+		users,
+		onShare: (row, splitWith) => {
+			updateTransactionMutation({
+				transactionId: row.id,
+				accountId,
+				data: {
+					date: [
+						row.date.getFullYear(),
+						String(row.date.getMonth() + 1).padStart(2, "0"),
+						String(row.date.getDate()).padStart(2, "0"),
+					].join("-"),
+					payee_id: row.payee_id,
+					memo: row.memo,
+					amount: row.amount,
+					splits: toApiSplits(row.splits),
+					splitWith,
+				},
+			});
+		},
+	});
 
 	const transactionRows: TransactionTableRow[] = transactions.map((transaction) => {
 		if (transaction.splits.length <= 1) {
@@ -242,6 +308,7 @@ export const AccountTransactionTable = ({
 			memo: string;
 			outflow: number;
 			inflow: number;
+			splitWith: string[];
 			splits?: {
 				category: string;
 				memo: string;
@@ -282,7 +349,7 @@ export const AccountTransactionTable = ({
 					memo: data.memo.trim() ? data.memo : null,
 					amount,
 					cleared: false,
-					splitWith: [],
+					splitWith: data.splitWith,
 					splits,
 				},
 			},
@@ -316,6 +383,7 @@ export const AccountTransactionTable = ({
 				prependedRow={
 					isAddingTransaction && onCancelAdd ? (
 						<EditableTransactionRow
+							users={users}
 							onCancel={onCancelAdd}
 							onSave={handleTransactionCreate}
 						/>
@@ -351,10 +419,11 @@ export const AccountTransactionTable = ({
 				}}
 				renderRow={(row) =>
 					row.isSplitSubRow && editingRowId === row.parentTransactionId ? (
-						<></>
+						false
 					) : editingRowId === row.id ? (
 						<EditableTransactionEditRow
 							transaction={row}
+							users={users}
 							onCancel={() => {
 								setEditingRowId(null);
 								setEditFocusTarget(null);
@@ -396,7 +465,7 @@ export const AccountTransactionTable = ({
 										payee_id: data.payee_id,
 										memo: data.memo,
 										amount,
-										splitWith: [],
+										splitWith: data.splitWith,
 										splits,
 									},
 								});

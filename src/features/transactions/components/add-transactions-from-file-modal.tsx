@@ -31,7 +31,6 @@ interface AddTransactionsFromFileModalProps {
 export function AddTransactionsFromFileModal({
 	open,
 	onOpenChange,
-	accountId,
 }: AddTransactionsFromFileModalProps) {
 	const [file, setFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -51,7 +50,7 @@ export function AddTransactionsFromFileModal({
 	const [addError, setAddError] = useState<string | null>(null);
 	const { mutateAsync: importTransactions, isPending: isAnalyzing } =
 		useImportTransactions();
-	const { mutateAsync: createBatchTransactions, isPending: isCreatingBatch } =
+	const { mutateAsync: _createBatchTransactions, isPending: isCreatingBatch } =
 		useCreateBatchTransactions();
 	const categoriesQuery = useCategories();
 	const payeesQuery = useGetPayees();
@@ -264,17 +263,17 @@ export function AddTransactionsFromFileModal({
 		}
 		setAddError(null);
 		try {
-			await createBatchTransactions({
-				data: drafts.map((draft) => ({
-					account_id: accountId,
-					category_id: draft.categoryId,
-					payee_id: draft.payeeId,
-					date: new Date(draft.date),
-					memo: null,
-					inflow: 0,
-					outflow: Math.round(draft.amount * 100),
-				})),
-			});
+			// await createBatchTransactions({
+			// 	data: drafts.map((draft) => ({
+			// 		account_id: accountId,
+			// 		category_id: draft.categoryId,
+			// 		payee_id: draft.payeeId,
+			// 		date: new Date(draft.date),
+			// 		memo: null,
+			// 		inflow: 0,
+			// 		outflow: Math.round(draft.amount * 100),
+			// 	})),
+			// });
 			onOpenChange(false);
 		} catch (submitError) {
 			console.error("Failed to create transactions:", submitError);

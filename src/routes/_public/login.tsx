@@ -39,7 +39,6 @@ export const Route = createFileRoute("/_public/login")({
 
 function RouteComponent() {
 	const router = useRouter();
-	const search = Route.useSearch();
 
 	const form = useForm({
 		defaultValues: {

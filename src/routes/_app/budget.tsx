@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_app/budget")({
 
 function RouteComponent() {
 	const [month, setMonth] = React.useState(new Date());
-	const [editingGoalId, setEditingGoalId] = React.useState<number>();
+	const [editingGoalId, setEditingGoalId] = React.useState<string>();
 	const [isGoalModalOpen, setIsGoalModalOpen] = React.useState(false);
 	const [selectedCategory, setSelectedCategory] = React.useState<Category>();
 
@@ -50,7 +50,6 @@ function RouteComponent() {
 				categoryName={selectedCategory?.name ?? ""}
 				categoryId={selectedCategory?.id ?? ""}
 				onOpenChange={handleGoalModalClose}
-				onSave={() => null}
 			/>
 		</div>
 	);
