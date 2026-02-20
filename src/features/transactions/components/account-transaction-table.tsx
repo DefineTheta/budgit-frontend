@@ -13,6 +13,7 @@ import {
 	EditableTransactionRow,
 } from "./editable-transaction-row";
 import { TransactionsToolbar } from "./transactions-toolbar";
+import { formatCurrency } from "@/utils/currency";
 
 interface AccountTransactionTableProps {
 	accountId: string;
@@ -87,12 +88,12 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 			),
 		enableSorting: false,
 		enableHiding: false,
-		size: 40,
+		size: 32,
 	},
 	{
 		accessorKey: "date",
 		header: "Date",
-		size: 144,
+		size: 128,
 		cell: ({ row }) => {
 			if (row.original.isSplitSubRow) return null;
 			return Intl.DateTimeFormat(undefined, {
@@ -104,7 +105,7 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 		accessorKey: "payee",
 		header: "Payee",
 		cell: ({ row }) => (row.original.isSplitSubRow ? null : row.original.payee),
-		size: 196,
+		size: 180,
 	},
 	{
 		id: "category",
@@ -150,32 +151,20 @@ const columns: ColumnDef<TransactionTableRow>[] = [
 		id: "outflow",
 		accessorFn: (transaction) =>
 			transaction.amount < 0 ? Math.abs(transaction.amount) : 0,
-		header: "Outflow",
-		size: 120,
-		cell: ({ getValue }) => {
-			const amount = getValue<number>() / 100;
-			const formattedAmount = new Intl.NumberFormat("en-AU", {
-				style: "currency",
-				currency: "AUD",
-			}).format(amount);
-
-			return formattedAmount;
-		},
+		header: () => <div className="text-right">Outflow</div>,
+		size: 96,
+		cell: ({ getValue }) => (
+			<div className="text-right">{formatCurrency(getValue<number>())}</div>
+		),
 	},
 	{
 		id: "inflow",
 		accessorFn: (transaction) => (transaction.amount > 0 ? transaction.amount : 0),
-		header: "Inflow",
-		size: 120,
-		cell: ({ getValue }) => {
-			const amount = getValue<number>() / 100;
-			const formattedAmount = new Intl.NumberFormat("en-AU", {
-				style: "currency",
-				currency: "AUD",
-			}).format(amount);
-
-			return formattedAmount;
-		},
+		header: () => <div className="text-right">Inflow</div>,
+		size: 96,
+		cell: ({ getValue }) => (
+			<div className="text-right">{formatCurrency(getValue<number>())}</div>
+		),
 	},
 ];
 
@@ -402,15 +391,15 @@ export const AccountTransactionTable = ({
 								return updateTransactionMutation({
 									transactionId: row.id,
 									accountId,
-					data: {
-						date,
-						payee_id: data.payee_id,
-						memo: data.memo,
-						amount,
-						splitWith: [],
-						splits,
-					},
-				});
+									data: {
+										date,
+										payee_id: data.payee_id,
+										memo: data.memo,
+										amount,
+										splitWith: [],
+										splits,
+									},
+								});
 							}}
 						/>
 					) : null

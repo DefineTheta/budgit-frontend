@@ -245,24 +245,24 @@ export function EditableTransactionRow({
 				return (
 					<>
 						<TableRow className="bg-muted/50 border-b-0">
-							<TableCell>
+							<TableCell className="px-2">
 								<Checkbox checked={true} />
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-1">
 								<DatePickerInput
 									date={values.date}
 									onDateChange={(date) => form.setFieldValue("date", date ?? new Date())}
 									inputRef={dateInputRef}
 								/>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-1">
 								<PayeeSelect
 									value={values.payee}
 									onChange={(value) => form.setFieldValue("payee", value)}
 									className="h-8"
 								/>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-1">
 								<CategorySelect
 									value={values.isSplitMode ? "" : values.category}
 									onChange={(value) => form.setFieldValue("category", value)}
@@ -272,7 +272,7 @@ export function EditableTransactionRow({
 									className="h-8"
 								/>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-1">
 								<Input
 									value={values.memo}
 									onChange={(event) => form.setFieldValue("memo", event.target.value)}
@@ -280,9 +280,9 @@ export function EditableTransactionRow({
 									className="h-8 w-full min-w-0 bg-background"
 								/>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-1">
 								<Input
-									type="number"
+									type="decimal"
 									value={values.outflow}
 									onChange={(event) => form.setFieldValue("outflow", event.target.value)}
 									onKeyDown={handleAmountEnterKey}
@@ -292,9 +292,9 @@ export function EditableTransactionRow({
 									step="0.01"
 								/>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-1">
 								<Input
-									type="number"
+									type="decimal"
 									value={values.inflow}
 									onChange={(event) => form.setFieldValue("inflow", event.target.value)}
 									onKeyDown={handleAmountEnterKey}
@@ -326,7 +326,7 @@ export function EditableTransactionRow({
 												</Button>
 											</div>
 										</TableCell>
-										<TableCell>
+										<TableCell className="px-1">
 											<CategorySelect
 												value={splitRow.category}
 												onChange={(value) =>
@@ -336,7 +336,7 @@ export function EditableTransactionRow({
 												className="h-8"
 											/>
 										</TableCell>
-										<TableCell>
+										<TableCell className="px-1">
 											<Input
 												value={splitRow.memo}
 												onChange={(event) =>
@@ -346,9 +346,9 @@ export function EditableTransactionRow({
 												className="h-8 w-full min-w-0 bg-background"
 											/>
 										</TableCell>
-										<TableCell>
+										<TableCell className="px-1">
 											<Input
-												type="number"
+												type="decimal"
 												value={splitRow.outflow}
 												onChange={(event) =>
 													handleUpdateSplitRow(splitRow.id, {
@@ -362,9 +362,9 @@ export function EditableTransactionRow({
 												step="0.01"
 											/>
 										</TableCell>
-										<TableCell>
+										<TableCell className="px-1">
 											<Input
-												type="number"
+												type="decimal"
 												value={splitRow.inflow}
 												onChange={(event) =>
 													handleUpdateSplitRow(splitRow.id, {
@@ -750,7 +750,7 @@ export function EditableTransactionEditRow({
 				<TableCell>
 					<Input
 						ref={outflowInputRef}
-						type="number"
+						type="decimal"
 						value={outflow}
 						onChange={(e) => setOutflow(e.target.value)}
 						onKeyDown={handleAmountEnterKey}
@@ -763,7 +763,7 @@ export function EditableTransactionEditRow({
 				<TableCell>
 					<Input
 						ref={inflowInputRef}
-						type="number"
+						type="decimal"
 						value={inflow}
 						onChange={(e) => setInflow(e.target.value)}
 						onKeyDown={handleAmountEnterKey}
@@ -834,7 +834,7 @@ export function EditableTransactionEditRow({
 									ref={(node) => {
 										splitOutflowRefs.current[split.id] = node;
 									}}
-									type="number"
+									type="decimal"
 									value={split.outflow}
 									onChange={(event) =>
 										handleUpdateSplitRow(split.id, { outflow: event.target.value })
@@ -851,7 +851,7 @@ export function EditableTransactionEditRow({
 									ref={(node) => {
 										splitInflowRefs.current[split.id] = node;
 									}}
-									type="number"
+									type="decimal"
 									value={split.inflow}
 									onChange={(event) =>
 										handleUpdateSplitRow(split.id, { inflow: event.target.value })

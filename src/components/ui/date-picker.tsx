@@ -88,6 +88,7 @@ export function DatePickerInput({ date, onDateChange, inputRef }: DatePickerInpu
 							setOpen(false);
 						}
 					}}
+					className="!pl-2 !pr-1"
 				/>
 				<InputGroupAddon align="inline-end">
 					<Popover open={open} onOpenChange={setOpen}>

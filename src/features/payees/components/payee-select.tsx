@@ -84,7 +84,8 @@ export function PayeeSelect({
 			</PopoverTrigger>
 			<PopoverContent
 				container={portalContainer}
-				className="w-[var(--radix-popover-trigger-width)] p-0"
+				className="min-w-64 w-[var(--radix-popover-trigger-width)] p-0"
+				align="start"
 			>
 				<Command>
 					<CommandInput
