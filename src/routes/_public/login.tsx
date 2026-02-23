@@ -1,7 +1,6 @@
-import { useForm } from "@tanstack/react-form";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import z from "zod";
-import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -9,10 +8,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { authClient } from "@/lib/auth-client";
+import { EmailPasswordForm } from "@/features/auth/components/email-password-form";
+import { OtpLoginForm } from "@/features/auth/components/otp-login-form";
 
 const loginSearchSchema = z.object({
 	redirect: z
@@ -24,173 +21,52 @@ const loginSearchSchema = z.object({
 		.catch("/"),
 });
 
-const loginFormSchema = z.object({
-	email: z.string().min(1, "Email is required").email("Enter a valid email"),
-	password: z
-		.string()
-		.min(1, "Password is required")
-		.min(6, "Password must be at least 6 characters"),
-});
-
 export const Route = createFileRoute("/_public/login")({
 	validateSearch: loginSearchSchema,
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	const router = useRouter();
-
-	const form = useForm({
-		defaultValues: {
-			email: "",
-			password: "",
-		},
-		onSubmit: async ({ value }) => {
-			try {
-				const { error } = await authClient.signIn.email({
-					email: value.email,
-					password: value.password,
-				});
-
-				if (error) {
-					console.log("error");
-					return;
-				}
-
-				await router.navigate({ to: "/" });
-			} catch (err: unknown) {
-				console.error(err);
-			}
-		},
-	});
+	const [useOtpLogin, setUseOtpLogin] = useState(false);
+	const [otpEmail, setOtpEmail] = useState<string | null>(null);
 
 	return (
-		<div className="flex min-h-screen items-center justify-center p-4">
-			<Card className="w-full max-w-sm">
-				<CardHeader>
-					<CardTitle>Login</CardTitle>
-					<CardDescription>Enter your credentials to continue.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<form
-						className="space-y-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							event.stopPropagation();
-							form.handleSubmit();
+		<Card className="w-full border-violet-200/70 bg-white/90 shadow-xl shadow-violet-950/10 backdrop-blur-sm">
+			<CardHeader className="space-y-2 pb-3">
+				<CardTitle className="text-2xl tracking-tight">Welcome back</CardTitle>
+				<CardDescription>
+					{useOtpLogin ? (
+						otpEmail ? (
+							<>
+								A login code has been sent to{" "}
+								<span className="font-semibold underline">{otpEmail}</span>.
+							</>
+						) : (
+							"Use a secure one-time code sent to your email."
+						)
+					) : (
+						"Sign in to continue building smarter budgets and better money habits."
+					)}
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="pt-1 pb-7">
+				{useOtpLogin ? (
+					<OtpLoginForm
+						onBackToPassword={() => {
+							setUseOtpLogin(false);
+							setOtpEmail(null);
 						}}
-					>
-						<form.Field
-							name="email"
-							validators={{
-								onChange: ({ value }) => {
-									const result = loginFormSchema.shape.email.safeParse(value);
-									if (!result.success) {
-										return result.error.issues[0]?.message;
-									}
-								},
-							}}
-						>
-							{(field) => (
-								<div className="space-y-2">
-									<Label htmlFor={field.name}>Email</Label>
-									<form.Subscribe selector={(state) => state.isSubmitting}>
-										{(isSubmitting) => (
-											<Input
-												id={field.name}
-												type="email"
-												placeholder="you@example.com"
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(event) => field.handleChange(event.target.value)}
-												disabled={isSubmitting}
-											/>
-										)}
-									</form.Subscribe>
-									{field.state.meta.isTouched && field.state.meta.errors[0] ? (
-										<p className="text-sm text-destructive">
-											{field.state.meta.errors[0]}
-										</p>
-									) : null}
-								</div>
-							)}
-						</form.Field>
-
-						<form.Field
-							name="password"
-							validators={{
-								onChange: ({ value }) => {
-									const result = loginFormSchema.shape.password.safeParse(value);
-									if (!result.success) {
-										return result.error.issues[0]?.message;
-									}
-								},
-							}}
-						>
-							{(field) => (
-								<div className="space-y-2">
-									<Label htmlFor={field.name}>Password</Label>
-									<form.Subscribe selector={(state) => state.isSubmitting}>
-										{(isSubmitting) => (
-											<Input
-												id={field.name}
-												type="password"
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(event) => field.handleChange(event.target.value)}
-												disabled={isSubmitting}
-											/>
-										)}
-									</form.Subscribe>
-									{field.state.meta.isTouched && field.state.meta.errors[0] ? (
-										<p className="text-sm text-destructive">
-											{field.state.meta.errors[0]}
-										</p>
-									) : null}
-								</div>
-							)}
-						</form.Field>
-
-						<form.Subscribe selector={(state) => state.isSubmitting}>
-							{(isSubmitting) => (
-								<Button
-									asChild
-									className={`h-auto px-0 ${isSubmitting ? "pointer-events-none opacity-50" : ""}`}
-									variant="link"
-								>
-									<a href="/forgot-password" aria-disabled={isSubmitting}>
-										Forgot password?
-									</a>
-								</Button>
-							)}
-						</form.Subscribe>
-
-						<form.Subscribe selector={(state) => state.isSubmitting}>
-							{(isSubmitting) => (
-								<>
-									<Button className="w-full" type="submit" disabled={isSubmitting}>
-										{isSubmitting ? "Logging in..." : "Login"}
-									</Button>
-									<div className="flex items-center gap-3">
-										<Separator className="flex-1" />
-										<span className="text-xs text-muted-foreground uppercase">or</span>
-										<Separator className="flex-1" />
-									</div>
-									<Button
-										asChild
-										className={`w-full ${isSubmitting ? "pointer-events-none opacity-50" : ""}`}
-										variant="outline"
-									>
-										<Link to="/signup" aria-disabled={isSubmitting}>
-											Sign up
-										</Link>
-									</Button>
-								</>
-							)}
-						</form.Subscribe>
-					</form>
-				</CardContent>
-			</Card>
-		</div>
+						onCodeRequested={(email: string) => setOtpEmail(email)}
+					/>
+				) : (
+					<EmailPasswordForm
+						onUseLoginCode={() => {
+							setUseOtpLogin(true);
+							setOtpEmail(null);
+						}}
+					/>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
