@@ -39,7 +39,6 @@ function RouteComponent() {
 				const email = value.email.trim();
 				const { error } = await authClient.requestPasswordReset({
 					email,
-					redirectTo: `${window.location.origin}/reset-password`,
 				});
 
 				if (error) {
