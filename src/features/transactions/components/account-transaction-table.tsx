@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck } from "lucide-react";
 import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/data-table";
@@ -69,15 +69,19 @@ const getTransactionSharedUserIds = (transaction: TransactionTableRow) => {
 		.map((split) => split.debtor_user_id)
 		.filter((id): id is string => Boolean(id));
 
-	return [...new Set(...debtorUserIds)];
+	return [...new Set(debtorUserIds)];
 };
 
 const getColumns = ({
 	users,
 	onShare,
+	onToggleCleared,
+	isUpdatingCleared,
 }: {
 	users: User[];
 	onShare: (row: TransactionTableRow, splitWith: string[]) => void;
+	onToggleCleared: (row: TransactionTableRow) => void;
+	isUpdatingCleared: boolean;
 }): ColumnDef<TransactionTableRow>[] => [
 	{
 		id: "select",
@@ -190,6 +194,38 @@ const getColumns = ({
 		),
 	},
 	{
+		id: "cleared",
+		header: "Cleared",
+		size: 72,
+		cell: ({ row }) => {
+			if (row.original.isSplitSubRow) return null;
+
+			const isCleared = row.original.cleared;
+
+			return (
+				<div className="flex flex-row justify-center">
+					<button
+						type="button"
+						onClick={() => onToggleCleared(row.original)}
+						disabled={isUpdatingCleared}
+						aria-label={
+							isCleared ? "Mark transaction uncleared" : "Mark transaction cleared"
+						}
+						className="inline-flex cursor-pointer h-8 w-8 items-center justify-center"
+					>
+						<CircleCheck
+							className={
+								isCleared
+									? "h-5 w-5 fill-emerald-700 text-white"
+									: "h-5 w-5 text-muted-foreground"
+							}
+						/>
+					</button>
+				</div>
+			);
+		},
+	},
+	{
 		id: "share",
 		header: "Share",
 		size: 80,
@@ -234,14 +270,15 @@ export const AccountTransactionTable = ({
 		},
 	});
 
-	const { mutate: updateTransactionMutation } = useUpdateTransaction({
-		mutationConfig: {
-			onSuccess: () => {
-				setEditingRowId(null);
-				setEditFocusTarget(null);
+	const { mutate: updateTransactionMutation, isPending: isUpdatingTransaction } =
+		useUpdateTransaction({
+			mutationConfig: {
+				onSuccess: () => {
+					setEditingRowId(null);
+					setEditFocusTarget(null);
+				},
 			},
-		},
-	});
+		});
 
 	const transactions = transactionsQuery.data;
 	const users = usersQuery.data ?? [];
@@ -250,11 +287,32 @@ export const AccountTransactionTable = ({
 
 	const columns = getColumns({
 		users,
+		isUpdatingCleared: isUpdatingTransaction,
+		onToggleCleared: (row) => {
+			updateTransactionMutation({
+				transactionId: row.id,
+				accountId,
+				data: {
+					date: [
+						row.date.getFullYear(),
+						String(row.date.getMonth() + 1).padStart(2, "0"),
+						String(row.date.getDate()).padStart(2, "0"),
+					].join("-"),
+					payee_id: row.payee_id,
+					memo: row.memo,
+					amount: row.amount,
+					splits: toApiSplits(row.splits),
+					splitWith: getTransactionSharedUserIds(row),
+					cleared: !row.cleared,
+				},
+			});
+		},
 		onShare: (row, splitWith) => {
 			updateTransactionMutation({
 				transactionId: row.id,
 				accountId,
 				data: {
+					cleared: row.cleared,
 					date: [
 						row.date.getFullYear(),
 						String(row.date.getMonth() + 1).padStart(2, "0"),
@@ -308,6 +366,7 @@ export const AccountTransactionTable = ({
 			memo: string;
 			outflow: number;
 			inflow: number;
+			cleared: boolean;
 			splitWith: string[];
 			splits?: {
 				category: string;
@@ -348,7 +407,7 @@ export const AccountTransactionTable = ({
 					payee_id: data.payee,
 					memo: data.memo.trim() ? data.memo : null,
 					amount,
-					cleared: false,
+					cleared: data.cleared,
 					splitWith: data.splitWith,
 					splits,
 				},
@@ -460,14 +519,15 @@ export const AccountTransactionTable = ({
 								return updateTransactionMutation({
 									transactionId: row.id,
 									accountId,
-									data: {
-										date,
-										payee_id: data.payee_id,
-										memo: data.memo,
-										amount,
-										splitWith: data.splitWith,
-										splits,
-									},
+					data: {
+						date,
+						payee_id: data.payee_id,
+						memo: data.memo,
+						amount,
+						cleared: data.cleared,
+						splitWith: data.splitWith,
+						splits,
+					},
 								});
 							}}
 						/>

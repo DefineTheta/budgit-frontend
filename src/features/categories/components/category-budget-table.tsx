@@ -11,7 +11,7 @@ import type { Category } from "@/features/categories/config/schemas";
 import { calculateMonthlyGoalProgress } from "@/features/categories/helper/goal";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/currency";
-import { CategoryActivityHoverCard } from "./category-activity-hover-card";
+import { CategoryActivityPopover } from "./category-activity-popover";
 import { CategoryTransferPopover } from "./category-transfer-popover";
 import { EditableAllocatedCell } from "./editable-allocated-cell";
 
@@ -97,7 +97,7 @@ export const CategoryBudgetTable = ({
 					const amount = (row.original.stats?.activity ?? 0) / 100;
 
 					return (
-						<CategoryActivityHoverCard
+						<CategoryActivityPopover
 							categoryId={row.original.id}
 							categoryName={row.original.name}
 							activityAmount={amount}

@@ -9,6 +9,7 @@ export const TransactionSchema = z.object({
 	date: z.coerce.date(),
 	memo: z.string().nullable(),
 	amount: z.number(),
+	cleared: z.boolean(),
 	splits: z.array(
 		z.object({
 			id: z.uuid(),

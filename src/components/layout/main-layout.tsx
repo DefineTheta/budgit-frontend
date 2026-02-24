@@ -11,7 +11,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 		<SidebarProvider>
 			<Sidebar />
 			<main className="flex-1 overflow-y-auto p-8">
-				<header className="mb-6 flex items-center justify-end">
+				<header className="mb-4 flex items-center justify-end">
 					<UserMenuDropdown />
 				</header>
 				{children}
