@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { CircleQuestionMark, Plus, Trash2 } from "lucide-react";
+import { CircleCheck, CircleQuestionMark, Plus, Trash2 } from "lucide-react";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	useEffect,
@@ -37,6 +37,7 @@ interface EditableTransactionRowProps {
 			memo: string;
 			outflow: number;
 			inflow: number;
+			cleared: boolean;
 			splitWith: string[];
 			splits?: {
 				category: string;
@@ -81,6 +82,7 @@ export function EditableTransactionRow({
 			memo: "",
 			outflow: "",
 			inflow: "",
+			cleared: false,
 			isSplitMode: false,
 			splitRows: [] as SplitRow[],
 			splitWith: [] as string[],
@@ -152,6 +154,7 @@ export function EditableTransactionRow({
 					memo: value.memo,
 					outflow: outflowAmount,
 					inflow: inflowAmount,
+					cleared: value.cleared,
 					splitWith: value.splitWith,
 					splits: splitsPayload,
 				},
@@ -165,6 +168,7 @@ export function EditableTransactionRow({
 			form.setFieldValue("memo", "");
 			form.setFieldValue("outflow", "");
 			form.setFieldValue("inflow", "");
+			form.setFieldValue("cleared", false);
 			form.setFieldValue("isSplitMode", false);
 			form.setFieldValue("splitRows", []);
 			form.setFieldValue("splitWith", []);
@@ -316,6 +320,28 @@ export function EditableTransactionRow({
 								/>
 							</TableCell>
 							<TableCell className="px-1">
+								<div className="flex justify-center">
+									<button
+										type="button"
+										onClick={() => form.setFieldValue("cleared", !values.cleared)}
+										aria-label={
+											values.cleared
+												? "Mark transaction uncleared"
+												: "Mark transaction cleared"
+										}
+										className="inline-flex h-8 w-8 cursor-pointer items-center justify-center"
+									>
+										<CircleCheck
+											className={
+												values.cleared
+													? "h-5 w-5 fill-emerald-700 text-white"
+													: "h-5 w-5 text-muted-foreground"
+											}
+										/>
+									</button>
+								</div>
+							</TableCell>
+							<TableCell className="px-1">
 								<TransactionShareControl
 									users={users}
 									splitWith={values.splitWith}
@@ -396,9 +422,10 @@ export function EditableTransactionRow({
 												step="0.01"
 											/>
 										</TableCell>
-										<TableCell />
-									</TableRow>
-								))}
+									<TableCell />
+									<TableCell />
+								</TableRow>
+							))}
 								<TableRow className="text-sm bg-muted/50 border-b-0">
 									<TableCell />
 									<TableCell />
@@ -444,6 +471,7 @@ export function EditableTransactionRow({
 											{formatCurrency(remainingInflow)}
 										</p>
 									</TableCell>
+									<TableCell />
 									<TableCell />
 								</TableRow>
 							</>
@@ -491,6 +519,7 @@ interface EditableTransactionEditRowProps {
 		memo: string | null;
 		outflow: number;
 		inflow: number;
+		cleared: boolean;
 		splitWith: string[];
 		splits?: {
 			category_id: string;
@@ -519,6 +548,7 @@ export function EditableTransactionEditRow({
 	const [memo, setMemo] = useState(transaction.memo ?? "");
 	const [outflow, setOutflow] = useState(String(outflowAmount / 100));
 	const [inflow, setInflow] = useState(String(inflowAmount / 100));
+	const [cleared, setCleared] = useState(transaction.cleared);
 	const [isSplitMode, setIsSplitMode] = useState(hasInitialSplits);
 	const [splitWith, setSplitWith] = useState<string[]>(() => {
 		const debtorUserIds = transaction.splits
@@ -699,16 +729,17 @@ export function EditableTransactionEditRow({
 
 		setErrorMessage(null);
 
-		onSave({
-			date: date ?? new Date(),
-			payee_id: payee,
-			category_id: isSplitMode ? (splitRows[0]?.category ?? "") : category,
-			memo: memo.trim() ? memo : null,
-			outflow: outflowCents,
-			inflow: inflowCents,
-			splitWith,
-			splits: isSplitMode
-				? splitRows.map((split) => ({
+			onSave({
+				date: date ?? new Date(),
+				payee_id: payee,
+				category_id: isSplitMode ? (splitRows[0]?.category ?? "") : category,
+				memo: memo.trim() ? memo : null,
+				outflow: outflowCents,
+				inflow: inflowCents,
+				cleared,
+				splitWith,
+				splits: isSplitMode
+					? splitRows.map((split) => ({
 						category_id: split.category,
 						memo: split.memo,
 						outflow: toCents(split.outflow),
@@ -805,6 +836,24 @@ export function EditableTransactionEditRow({
 						min="0"
 						step="0.01"
 					/>
+				</TableCell>
+				<TableCell>
+					<div className="flex justify-center">
+						<button
+							type="button"
+							onClick={() => setCleared((current) => !current)}
+							aria-label={cleared ? "Mark transaction uncleared" : "Mark transaction cleared"}
+							className="inline-flex h-8 w-8 cursor-pointer items-center justify-center"
+						>
+							<CircleCheck
+								className={
+									cleared
+										? "h-5 w-5 fill-emerald-700 text-white"
+										: "h-5 w-5 text-muted-foreground"
+								}
+							/>
+						</button>
+					</div>
 				</TableCell>
 				<TableCell>
 					<TransactionShareControl
@@ -924,6 +973,7 @@ export function EditableTransactionEditRow({
 									/>
 								</TableCell>
 								<TableCell />
+								<TableCell />
 							</TableRow>
 						);
 					})}
@@ -973,10 +1023,11 @@ export function EditableTransactionEditRow({
 								{formatCurrency(remainingInflow)}
 							</p>
 						</TableCell>
-						<TableCell />
-					</TableRow>
-				</>
-			) : null}
+					<TableCell />
+					<TableCell />
+				</TableRow>
+			</>
+		) : null}
 
 			<TableRow className="bg-muted/50">
 				<TableCell colSpan={100}>
