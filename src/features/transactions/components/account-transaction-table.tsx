@@ -21,6 +21,11 @@ interface AccountTransactionTableProps {
 	accountId: string;
 	isAddingTransaction?: boolean;
 	onCancelAdd?: () => void;
+	onSelectionSummaryChange?: (summary: {
+		count: number;
+		total: number;
+		byCategory: { category: string; amount: number }[];
+	}) => void;
 }
 
 type TransactionWithDraft = Transaction & { draft?: boolean };
@@ -250,6 +255,7 @@ export const AccountTransactionTable = ({
 	accountId,
 	isAddingTransaction = false,
 	onCancelAdd,
+	onSelectionSummaryChange,
 }: AccountTransactionTableProps) => {
 	const [rowSelection, setRowSelection] = React.useState({});
 	const [editingRowId, setEditingRowId] = React.useState<string | null>(null);
@@ -428,6 +434,28 @@ export const AccountTransactionTable = ({
 			});
 	};
 
+	const handleSelectionChange = (selectedTransactions: TransactionTableRow[]) => {
+		const categoryTotals = new Map<string, number>();
+		let selectedTotal = 0;
+
+		for (const transaction of selectedTransactions) {
+			selectedTotal += transaction.amount;
+
+			for (const split of transaction.splits) {
+				const current = categoryTotals.get(split.category) ?? 0;
+				categoryTotals.set(split.category, current + split.amount);
+			}
+		}
+
+		onSelectionSummaryChange?.({
+			count: selectedTransactions.length,
+			total: selectedTotal,
+			byCategory: Array.from(categoryTotals.entries())
+				.map(([category, amount]) => ({ category, amount }))
+				.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
+		});
+	};
+
 	return (
 		<div className="relative space-y-4">
 			<DataTable
@@ -534,7 +562,11 @@ export const AccountTransactionTable = ({
 					) : null
 				}
 				renderToolbar={(table) => (
-					<TransactionsToolbar table={table} onDelete={handleTransactionsDelete} />
+					<TransactionsToolbar
+						table={table}
+						onDelete={handleTransactionsDelete}
+						onSelectionChange={handleSelectionChange}
+					/>
 				)}
 			/>
 		</div>
